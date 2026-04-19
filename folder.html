@@ -127,8 +127,18 @@
   font-family: 'Noto Sans KR', sans-serif;
 }
 .sheet input:focus, .sheet select:focus { border-bottom-color: var(--accent); outline: none; }
-.sheet select option { background: #222; }
+.sheet select option { background: var(--surface2); color: var(--text); }
 .apt-name-cell { font-weight: 600; color: var(--accent); font-size: 14px; }
+.apt-drag-handle {
+  cursor: grab; color: var(--text3); font-size: 16px;
+  padding: 12px 6px 12px 10px !important;
+  user-select: none; text-align: center;
+  transition: color 0.15s;
+}
+.apt-drag-handle:hover { color: var(--accent); }
+.apt-drag-handle:active { cursor: grabbing; }
+.apt-main-row.drag-over td { background: var(--accent-dim) !important; }
+.apt-main-row.dragging { opacity: 0.4; }
 .price-cell { font-family: 'DM Mono', monospace; color: var(--text2); font-size: 11px; font-weight: 400; }
 
 /* Memo section */
@@ -355,6 +365,7 @@
         <table class="sheet" id="aptSheet">
           <thead>
             <tr>
+              <th style="width:28px;"></th>
               <th>아파트명</th>
               <th>지역</th>
               <th>건축연도</th>
@@ -1082,8 +1093,9 @@ function renderSpreadsheet(folder) {
       : '<span style="color:var(--text3);">—</span>';
 
     return `
-      <tr class="apt-divider"><td colspan="9"></td></tr>
-      <tr class="apt-main-row">
+      <tr class="apt-divider"><td colspan="10"></td></tr>
+      <tr class="apt-main-row" data-apt-id="${apt.id}" draggable="false">
+        <td class="apt-drag-handle" title="드래그하여 순서 변경">⠿</td>
         <td class="apt-name-cell">${apt.name}</td>
         <td style="white-space:nowrap;color:var(--text3);font-weight:400;font-size:12px;">${apt.regionName||''}</td>
         <td style="white-space:nowrap;">${buildInfo}</td>
@@ -1102,6 +1114,7 @@ function renderSpreadsheet(folder) {
         <td></td>
       </tr>
       <tr class="apt-sub-header">
+        <th style="width:28px;"></th>
         <th style="padding-left:24px;">
           └ 타입
           <div class="type-filter-wrap">
@@ -1144,13 +1157,14 @@ function renderSpreadsheet(folder) {
       </tr>
       ${subRows}${customRows}
       <tr>
-        <td colspan="9" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
+        <td colspan="10" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
           <button class="btn btn-sm" onclick="addCustomAreaPrompt('${apt.id}')">＋ 타입 추가</button>
           <span style="font-size:10px;color:var(--text3);margin-left:10px;">⚠️ 추가한 타입의 면적 값은 저장 후 수정 불가 — 변경 시 삭제 후 재추가</span>
         </td>
       </tr>
     `;
   }).join('');
+  initAptDrag();
 }
 
 function toggleFilterPanel(aptId, e) {
@@ -1234,6 +1248,54 @@ function updateManual(aptId, field, value) {
 function updateManualArea(aptId, area, field, value) {
   if (!currentFolderId) return;
   updateApartmentManual(currentFolderId, aptId, { areas: { [area]: { [field]: value } } });
+}
+
+// ─── 아파트 순서 드래그&드롭 ───────────────────────────────────────
+let dragSrcAptId = null;
+
+function initAptDrag() {
+  document.querySelectorAll('.apt-drag-handle').forEach(handle => {
+    const row = handle.closest('tr.apt-main-row');
+    if (!row) return;
+    handle.addEventListener('mousedown', () => { row.draggable = true; });
+    handle.addEventListener('mouseup',   () => { row.draggable = false; });
+    row.addEventListener('dragstart', e => {
+      if (!row.draggable) { e.preventDefault(); return; }
+      dragSrcAptId = row.dataset.aptId;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      row.draggable = false;
+      document.querySelectorAll('.apt-main-row.drag-over')
+        .forEach(r => r.classList.remove('drag-over'));
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (row.dataset.aptId === dragSrcAptId) return;
+      document.querySelectorAll('.apt-main-row.drag-over')
+        .forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      const targetId = row.dataset.aptId;
+      if (!dragSrcAptId || dragSrcAptId === targetId) return;
+      const db = loadDB();
+      const folder = db.folders.find(f => f.id === currentFolderId);
+      if (!folder) return;
+      const apts = folder.apartments || [];
+      const srcIdx = apts.findIndex(a => a.id === dragSrcAptId);
+      const tgtIdx = apts.findIndex(a => a.id === targetId);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+      const [moved] = apts.splice(srcIdx, 1);
+      apts.splice(tgtIdx, 0, moved);
+      folder.apartments = apts;
+      saveDB(db);
+      renderSpreadsheet(folder);
+    });
+  });
 }
 
 function removeApt(aptId) {
