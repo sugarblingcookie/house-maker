@@ -227,16 +227,17 @@ body {
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.loc-photo { flex: 0 0 auto; width: 260px; }
+.loc-photo { flex: 0 0 50%; width: 50%; }
 .loc-photo img {
   width: 100%;
   border-radius: 6px;
   border: 1px solid var(--img-border);
   display: block;
+  object-fit: contain;
 }
 .loc-memo {
   flex: 1;
-  min-width: 180px;
+  min-width: 120px;
   font-size: 13px;
   color: var(--text2);
   line-height: 1.8;
@@ -366,17 +367,18 @@ body {
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
-.pm-photo { flex: 0 0 auto; width: 220px; }
+.pm-photo { flex: 0 0 50%; width: 50%; }
 .pm-photo img {
   width: 100%;
   border-radius: 6px;
   border: 1px solid var(--img-border);
   display: block;
+  object-fit: contain;
 }
 .pm-memo {
   flex: 1;
-  min-width: 140px;
-  font-size: 12px;
+  min-width: 120px;
+  font-size: 13px;
   color: var(--text3);
   line-height: 1.8;
   white-space: pre-wrap;
@@ -485,18 +487,17 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.entry-photo { flex: 0 0 auto; width: 240px; }
+.entry-photo { flex: 0 0 50%; width: 50%; }
 .entry-photo img {
   width: 100%;
   border-radius: 6px;
   border: 1px solid var(--img-border);
   display: block;
-  max-height: 200px;
-  object-fit: cover;
+  object-fit: contain;
 }
 .entry-memo {
   flex: 1;
-  min-width: 200px;
+  min-width: 120px;
   font-size: 13px;
   color: var(--text2);
   line-height: 1.8;
@@ -953,9 +954,9 @@ function renderSpreadsheet(folder) {
           <td colspan="3" style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
         </tr>
         <tr class="apt-sub-hdr">
-          <th style="padding-left:20px;">└ 타입</th>
+          <th style="padding-left:20px;width:90px;">└ 타입</th>
           <th style="width:52px;white-space:nowrap;">전용면적</th><th style="width:52px;white-space:nowrap;">세대수</th>
-          <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;">고점대비</th>
+          <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:80px;">고점대비</th>
           <th style="width:60px;white-space:nowrap;">세대당 주차</th>
           <th style="width:52px;white-space:nowrap;">방</th><th style="width:52px;white-space:nowrap;">화장실</th>
         </tr>`;
@@ -978,7 +979,7 @@ function renderSpreadsheet(folder) {
         const highNote  = s.isAtHigh ? '▲ 고점' : (s.highDate || '');
         rows += `
           <tr class="apt-sub">
-            <td style="padding-left:20px;">${s.area}㎡ · ${pyeong}평</td>
+            <td style="padding-left:20px;white-space:nowrap;">${s.area}㎡<br><span class="sub-note">${pyeong}평</span></td>
             <td>${esc(saved.supply||'')||'—'}</td>
             <td>${esc(saved.units||'')||'—'}</td>
             <td class="mono">${latestPrice}${latestDate ? `<br><span class="sub-note">(${latestDate})</span>` : ''}</td>
@@ -999,7 +1000,7 @@ function renderSpreadsheet(folder) {
         const highPrice   = esc(saved.manualHighPrice   || '') || '—';
         rows += `
           <tr class="apt-sub">
-            <td style="padding-left:20px;">${esc(areaKey)}㎡${pyeong !== null ? ' · ' + pyeong + '평' : ''} <span style="color:#4a7c20;font-size:10px;">수동</span></td>
+            <td style="padding-left:20px;white-space:nowrap;">${esc(parseFloat(areaKey)||areaKey)}㎡${pyeong !== null ? `<br><span class="sub-note">${pyeong}평</span>` : ''}<br><span style="color:#4a7c20;font-size:10px;">수동</span></td>
             <td>${esc(saved.supply||'')||'—'}</td>
             <td>${esc(saved.units||'')||'—'}</td>
             <td class="mono">${latestPrice}</td>
