@@ -996,7 +996,6 @@ function selectFolder(id) {
     renderFolderTabs();
     loadTypeFilters(folder);
     renderSpreadsheet(folder);
-    applyAllSavedTypeFilters();
     renderMemo(folder);
     renderGraphs(folder);
     renderPhotos(folder);
@@ -1167,6 +1166,7 @@ function renderSpreadsheet(folder) {
     `;
   }).join('');
   initAptDrag();
+  applyAllSavedTypeFilters();
 }
 
 function toggleFilterPanel(aptId, e) {

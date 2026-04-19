@@ -460,6 +460,9 @@ async function loadApartment(exactName) {
     buildYear, buildingAge
   };
 
+  const duplicate = apartments.find(a => a.name === exactName && a.lawdCd === lawdCd);
+  if (duplicate && !confirm(`"${exactName}"은 이미 비교 목록에 있습니다.\n그래도 추가할까요?`)) return;
+
   apartments.push(apt);
   activeApt = apt;
   renderSidebar();
