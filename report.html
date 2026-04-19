@@ -935,12 +935,23 @@ function renderAnalysis(folder) {
 function renderSpreadsheet(folder) {
   const apts = folder.apartments || [];
   let rows = '';
+  // 저장된 타입 필터 로드
+  let savedFilters = {};
+  try {
+    const raw = (folder.memo || {}).typeFilters;
+    if (raw) savedFilters = JSON.parse(raw);
+  } catch(e) {}
+
   if (!apts.length) {
     rows = `<tr><td colspan="7" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
   } else {
     apts.forEach(apt => {
       const m = apt.manual || {};
-      const areaStats = apt.areaStats || [];
+      const allAreaStats = apt.areaStats || [];
+      const filterSet = savedFilters[apt.id] ? new Set(savedFilters[apt.id]) : null;
+      const areaStats = filterSet
+        ? allAreaStats.filter(s => filterSet.has(String(s.area)))
+        : allAreaStats;
       const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${apt.buildingAge}년차)</span></span>` : '—';
       rows += `<tr class="apt-gap"><td colspan="9"></td></tr>`;
       rows += `
@@ -954,9 +965,9 @@ function renderSpreadsheet(folder) {
           <td colspan="3" style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
         </tr>
         <tr class="apt-sub-hdr">
-          <th style="padding-left:20px;width:90px;">└ 타입</th>
+          <th style="padding-left:20px;width:70px;">└ 타입</th>
           <th style="width:52px;white-space:nowrap;">전용면적</th><th style="width:52px;white-space:nowrap;">세대수</th>
-          <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:80px;">고점대비</th>
+          <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:100px;">고점대비</th>
           <th style="width:60px;white-space:nowrap;">세대당 주차</th>
           <th style="width:52px;white-space:nowrap;">방</th><th style="width:52px;white-space:nowrap;">화장실</th>
         </tr>`;
@@ -992,7 +1003,10 @@ function renderSpreadsheet(folder) {
       });
 
       // 수동 추가 타입 행
-      (m.customAreas || []).forEach(areaKey => {
+      const filteredCustomAreas = filterSet
+        ? (m.customAreas || []).filter(k => filterSet.has(k))
+        : (m.customAreas || []);
+      filteredCustomAreas.forEach(areaKey => {
         const saved = (m.areas||{})[areaKey] || {};
         const num = parseFloat(areaKey);
         const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
