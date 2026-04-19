@@ -371,8 +371,9 @@
               <th>건축연도</th>
               <th>전체 세대수</th>
               <th>복도 형식</th>
-              <th>거래건수</th>
+              <th>거래건수 (12개월)</th>
               <th>메모</th>
+              <th></th>
               <th></th>
               <th></th>
             </tr>
@@ -1064,6 +1065,7 @@ function renderSpreadsheet(folder) {
             ${s.highPrice ? `<br><span style="color:${s.isAtHigh ? '#4ade80' : 'var(--text3)'};">${s.isAtHigh ? '▲ 고점' : '('+s.highDate+')'}</span>` : ''}
           </td>
           <td class="price-cell">${fmtHighPct(parsePrice(s.latestPrice), parsePrice(s.highPrice), s.isAtHigh)}</td>
+          <td><input type="text" value="${saved.parking||''}" placeholder="예: 1.2" onchange="updateManualArea('${apt.id}','${s.area}','parking',this.value)" /></td>
           <td><input type="text" value="${saved.rooms||''}" placeholder="3" onchange="updateManualArea('${apt.id}','${s.area}','rooms',this.value)" /></td>
           <td><input type="text" value="${saved.bathrooms||''}" placeholder="2" onchange="updateManualArea('${apt.id}','${s.area}','bathrooms',this.value)" /></td>
         </tr>`;
@@ -1084,6 +1086,7 @@ function renderSpreadsheet(folder) {
           <td><input type="text" value="${saved.manualLatestPrice||''}" placeholder="예: 9.5억" onchange="updateManualArea('${apt.id}','${areaKey}','manualLatestPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
           <td><input type="text" value="${saved.manualHighPrice||''}" placeholder="예: 11.2억" onchange="updateManualArea('${apt.id}','${areaKey}','manualHighPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
           <td class="price-cell">${fmtHighPct(parsePrice(saved.manualLatestPrice), parsePrice(saved.manualHighPrice), false)}</td>
+          <td><input type="text" value="${saved.parking||''}" placeholder="예: 1.2" onchange="updateManualArea('${apt.id}','${areaKey}','parking',this.value)" /></td>
           <td><input type="text" value="${saved.rooms||''}" placeholder="3" onchange="updateManualArea('${apt.id}','${areaKey}','rooms',this.value)" /></td>
           <td><input type="text" value="${saved.bathrooms||''}" placeholder="2" onchange="updateManualArea('${apt.id}','${areaKey}','bathrooms',this.value)" /></td>
           <td><button class="btn btn-sm btn-danger btn-icon" onclick="removeCustomArea('${apt.id}','${areaKey}')" title="타입 삭제">✕</button></td>
@@ -1095,7 +1098,7 @@ function renderSpreadsheet(folder) {
       : '<span style="color:var(--text3);">—</span>';
 
     return `
-      <tr class="apt-divider"><td colspan="10"></td></tr>
+      <tr class="apt-divider"><td colspan="11"></td></tr>
       <tr class="apt-main-row" data-apt-id="${apt.id}" draggable="false">
         <td class="apt-drag-handle" title="드래그하여 순서 변경">⠿</td>
         <td class="apt-name-cell">${apt.name}</td>
@@ -1113,6 +1116,7 @@ function renderSpreadsheet(folder) {
         <td style="color:var(--text3);font-size:12px;font-weight:400;">${(apt.trades||[]).length}건</td>
         <td><input type="text" value="${m.notes||''}" placeholder="메모..." onchange="updateManual('${apt.id}','notes',this.value)" style="min-width:120px;" /></td>
         <td><button class="btn btn-sm btn-danger btn-icon" onclick="removeApt('${apt.id}')" title="삭제">✕</button></td>
+        <td></td>
         <td></td>
       </tr>
       <tr class="apt-sub-header">
@@ -1151,16 +1155,17 @@ function renderSpreadsheet(folder) {
         </th>
         <th style="width:52px;">전용면적</th>
         <th style="width:52px;">세대수</th>
-        <th>최근 거래가</th>
-        <th>3년 최고가</th>
+        <th style="width:120px;">최근 거래가</th>
+        <th style="width:120px;">3년 최고가</th>
         <th>고점대비</th>
+        <th style="width:70px;">세대당 주차</th>
         <th style="width:52px;">방</th>
         <th style="width:52px;">화장실</th>
         <th></th>
       </tr>
       ${subRows}${customRows}
       <tr>
-        <td colspan="10" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
+        <td colspan="11" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
           <button class="btn btn-sm" onclick="addCustomAreaPrompt('${apt.id}')">＋ 타입 추가</button>
           <span style="font-size:10px;color:var(--text3);margin-left:10px;">⚠️ 추가한 타입의 면적 값은 저장 후 수정 불가 — 변경 시 삭제 후 재추가</span>
         </td>

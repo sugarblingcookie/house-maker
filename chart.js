@@ -7,7 +7,7 @@ let priceChart = null;
 function getMonthLabels() {
   const now = new Date();
   const months = [];
-  for (let i = 11; i >= 0; i--) {
+  for (let i = 35; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push({ label:`${d.getFullYear()}.${d.getMonth()+1}`, year:d.getFullYear(), month:d.getMonth()+1 });
   }
@@ -19,7 +19,7 @@ function renderChart(canvasId, apartments, selectedArea) {
   const months = getMonthLabels();
 
   const datasets = apartments.map((apt, i) => {
-    const trades = apt.trades || [];
+    const trades = apt.allTrades || apt.trades || [];
     const filtered = selectedArea === 'all' ? trades : trades.filter(t => Math.round(t.area) == selectedArea);
     const data = months.map(m => {
       const mt = filtered.filter(t => t.year === m.year && t.month === m.month);
