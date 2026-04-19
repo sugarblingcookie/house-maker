@@ -884,6 +884,33 @@ function openReport() {
 let typeFilterState = {}; // { [aptId]: Set<area_string> }
 let filterSaveTimer = null;
 
+// 이미지 압축: 최대 1200px, JPEG quality 0.82로 리사이징
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+let memoSaveTimer = null;
+function debouncedSave(fn, delay = 500) {
+  clearTimeout(memoSaveTimer);
+  memoSaveTimer = setTimeout(fn, delay);
+}
+
 function init() {
   renderFolderTabs();
   const folders = getFolders();
@@ -1494,12 +1521,10 @@ function handleReportPhotoDrop(e, id) {
 }
 
 function loadReportPhoto(file, id) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    updatePhotoData(currentFolderId, id, ev.target.result);
+  compressImage(file, data => {
+    updatePhotoData(currentFolderId, id, data);
     renderPhotos(getFolder(currentFolderId));
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function removeReportPhoto(e, id) {
@@ -1509,7 +1534,7 @@ function removeReportPhoto(e, id) {
 }
 
 function updateReport(photoId, report) {
-  updatePhotoReport(currentFolderId, photoId, report);
+  debouncedSave(() => updatePhotoReport(currentFolderId, photoId, report));
 }
 
 function removeReportEntry(photoId) {
@@ -1601,12 +1626,10 @@ function handleGraphPhotoDrop(e, id) {
 }
 
 function loadGraphPhoto(file, id) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    updateGraphData(currentFolderId, id, ev.target.result);
+  compressImage(file, data => {
+    updateGraphData(currentFolderId, id, data);
     renderGraphs(getFolder(currentFolderId));
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function removeGraphPhoto(e, id) {
@@ -1616,7 +1639,7 @@ function removeGraphPhoto(e, id) {
 }
 
 function updateGraphEntry(graphId, report) {
-  updateGraphReport(currentFolderId, graphId, report);
+  debouncedSave(() => updateGraphReport(currentFolderId, graphId, report));
 }
 
 function removeGraphEntry(graphId) {
@@ -1790,17 +1813,15 @@ function handleSchoolPhotoDrop(e) {
 }
 
 function loadSchoolPhotoFile(file) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    schoolPhotoData = ev.target.result;
+  compressImage(file, data => {
+    schoolPhotoData = data;
     const img = document.getElementById('school_photo_img');
     img.src = schoolPhotoData;
     img.style.display = 'block';
     document.getElementById('school_photo_placeholder').style.display = 'none';
     document.getElementById('school_photo_del').style.display = 'block';
     saveMemoDebounced();
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function openSchoolPhotoLightbox(e) {
@@ -1882,17 +1903,15 @@ function handleEnvPhotoDrop(e) {
 }
 
 function loadEnvPhotoFile(file) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    envPhotoData = ev.target.result;
+  compressImage(file, data => {
+    envPhotoData = data;
     const img = document.getElementById('env_photo_img');
     img.src = envPhotoData;
     img.style.display = 'block';
     document.getElementById('env_photo_placeholder').style.display = 'none';
     document.getElementById('env_photo_del').style.display = 'block';
     saveMemoDebounced();
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function removeEnvPhoto() {
@@ -1996,17 +2015,15 @@ function handleLocPhotoDrop(e) {
 }
 
 function loadLocPhotoFile(file) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    locPhotoData = ev.target.result;
+  compressImage(file, data => {
+    locPhotoData = data;
     const img = document.getElementById('loc_photo_img');
     img.src = locPhotoData;
     img.style.display = 'block';
     document.getElementById('loc_photo_placeholder').style.display = 'none';
     document.getElementById('loc_photo_del').style.display = 'block';
     saveMemoDebounced();
-  };
-  reader.readAsDataURL(file);
+  });
 }
 
 function removeLocPhoto() {
