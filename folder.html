@@ -1074,10 +1074,11 @@ function renderSpreadsheet(folder) {
       const saved = (m.areas || {})[areaKey] || {};
       const num = parseFloat(areaKey);
       const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
+      const displayArea = !isNaN(num) ? num : areaKey;
       return `
         <tr class="apt-sub-row" data-apt="${apt.id}" data-area="${areaKey}">
           <td></td>
-          <td style="padding-left:24px;line-height:1.6;white-space:nowrap;">${areaKey}㎡${pyeong !== null ? `<br><span style="color:var(--text3);font-size:11px;">${pyeong}평</span>` : ''}<br><span style="color:var(--accent);font-size:10px;opacity:0.65;">수동추가</span></td>
+          <td style="padding-left:24px;line-height:1.6;white-space:nowrap;">${displayArea}㎡${pyeong !== null ? `<br><span style="color:var(--text3);font-size:11px;">${pyeong}평</span>` : ''}<br><span style="color:var(--accent);font-size:10px;opacity:0.65;">수동추가</span></td>
           <td><input type="text" value="${saved.supply||''}" placeholder="예: 110.5" onchange="updateManualArea('${apt.id}','${areaKey}','supply',this.value)" /></td>
           <td><input type="text" value="${saved.units||''}" placeholder="예: 300" onchange="updateManualArea('${apt.id}','${areaKey}','units',this.value)" /></td>
           <td><input type="text" value="${saved.manualLatestPrice||''}" placeholder="예: 9.5억" onchange="updateManualArea('${apt.id}','${areaKey}','manualLatestPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
@@ -1136,12 +1137,13 @@ function renderSpreadsheet(folder) {
               `).join('')}${customAreas.map(areaKey => {
                 const num = parseFloat(areaKey);
                 const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
+                const displayArea = !isNaN(num) ? num : areaKey;
                 return `
                 <label class="type-filter-item">
                   <input type="checkbox" checked
                     data-apt="${apt.id}" data-area="${areaKey}"
                     onchange="applyAptTypeFilter('${apt.id}')">
-                  ${areaKey}㎡${pyeong !== null ? ' · ' + pyeong + '평' : ''} <span style="color:var(--text3);font-size:10px;">수동</span>
+                  ${displayArea}㎡${pyeong !== null ? ' · ' + pyeong + '평' : ''} <span style="color:var(--accent);font-size:10px;">(수동)</span>
                 </label>`;
               }).join('')}
             </div>
@@ -1317,13 +1319,17 @@ function addCustomAreaPrompt(aptId) {
 
   const m = apt.manual || {};
   const areaStats = apt.areaStats || [];
-  const existingKeys = new Set([
-    ...areaStats.map(s => String(s.area)),
-    ...(m.customAreas || [])
-  ]);
-  if (existingKeys.has(key)) {
-    alert(`"${key}㎡" 타입은 이미 존재합니다.`);
-    return;
+  const customAreaSet = new Set(m.customAreas || []);
+  const apiAreaSet = new Set(areaStats.map(s => String(s.area)));
+
+  // 이미 동일 키의 수동 행이 있으면 고유 키 생성
+  if (customAreaSet.has(key)) {
+    let i = 1;
+    while (customAreaSet.has(`${key}_${i}`)) i++;
+    if (!confirm(`"${key}㎡" 수동 행이 이미 있습니다. 하나 더 추가할까요?`)) return;
+    key = `${key}_${i}`;
+  } else if (apiAreaSet.has(key)) {
+    if (!confirm(`"${key}㎡"은 API 데이터로 이미 있습니다. 수동 행을 별도로 추가할까요?`)) return;
   }
 
   updateApartmentManual(currentFolderId, aptId, { customAreas: [...(m.customAreas || []), key] });
