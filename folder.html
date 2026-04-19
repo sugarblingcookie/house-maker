@@ -1055,7 +1055,8 @@ function renderSpreadsheet(folder) {
       const saved = (m.areas || {})[s.area] || {};
       return `
         <tr class="apt-sub-row" data-apt="${apt.id}" data-area="${s.area}">
-          <td style="padding-left:24px;line-height:1.6;">${s.area}㎡<br><span style="color:var(--text3);font-size:11px;">${s.pyeong}평</span></td>
+          <td></td>
+          <td style="padding-left:24px;line-height:1.6;white-space:nowrap;">${s.area}㎡<br><span style="color:var(--text3);font-size:11px;">${s.pyeong}평</span></td>
           <td><input type="text" value="${saved.supply||''}" placeholder="예: 110.5" onchange="updateManualArea('${apt.id}','${s.area}','supply',this.value)" /></td>
           <td><input type="text" value="${saved.units||''}" placeholder="예: 300" onchange="updateManualArea('${apt.id}','${s.area}','units',this.value)" /></td>
           <td class="price-cell">${s.latestPrice !== '-' ? s.latestPrice+'억' : '-'}${s.latestDate ? `<br><span style="color:var(--text3);">(${s.latestDate})</span>` : ''}</td>
@@ -1076,7 +1077,8 @@ function renderSpreadsheet(folder) {
       const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
       return `
         <tr class="apt-sub-row" data-apt="${apt.id}" data-area="${areaKey}">
-          <td style="padding-left:24px;line-height:1.6;">${areaKey}㎡${pyeong !== null ? `<br><span style="color:var(--text3);font-size:11px;">${pyeong}평</span>` : ''}<br><span style="color:var(--accent);font-size:10px;opacity:0.65;">수동추가</span></td>
+          <td></td>
+          <td style="padding-left:24px;line-height:1.6;white-space:nowrap;">${areaKey}㎡${pyeong !== null ? `<br><span style="color:var(--text3);font-size:11px;">${pyeong}평</span>` : ''}<br><span style="color:var(--accent);font-size:10px;opacity:0.65;">수동추가</span></td>
           <td><input type="text" value="${saved.supply||''}" placeholder="예: 110.5" onchange="updateManualArea('${apt.id}','${areaKey}','supply',this.value)" /></td>
           <td><input type="text" value="${saved.units||''}" placeholder="예: 300" onchange="updateManualArea('${apt.id}','${areaKey}','units',this.value)" /></td>
           <td><input type="text" value="${saved.manualLatestPrice||''}" placeholder="예: 9.5억" onchange="updateManualArea('${apt.id}','${areaKey}','manualLatestPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
