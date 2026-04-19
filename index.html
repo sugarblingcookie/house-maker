@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APT TRACKER — 시세 조회</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="api.js"></script>
+<script src="data.js"></script>
+<script src="chart.js"></script>
+<script src="theme.js"></script>
+<style>
+/* 검색 자동완성 드롭다운 */
+.search-wrap { position: relative; }
+.candidates {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  z-index: 200;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.candidate-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.1s;
+}
+.candidate-item:hover, .candidate-item.focused {
+  background: var(--surface3);
+  color: var(--text);
+}
+.candidate-item .match-highlight { color: var(--accent); font-weight: 500; }
+.candidate-count { font-size: 11px; color: var(--text3); }
+.candidate-loading {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text3);
+  text-align: center;
+}
+.candidate-empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text3);
+  text-align: center;
+}
+
+/* 저장 바 */
+.save-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: var(--radius);
+  padding: 10px 14px; margin-top: 8px;
+}
+.save-bar select { margin: 0; flex: 1; }
+.save-bar label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+
+/* 검색 힌트 */
+.search-hint {
+  font-size: 11px; color: var(--text3);
+  padding: 5px 2px; line-height: 1.5;
+}
+
+/* 면적별 테이블 */
+.area-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.area-table th {
+  font-size: 10px; color: var(--text3); font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0 12px 8px 0; text-align: left; white-space: nowrap;
+}
+.area-table td {
+  padding: 10px 12px 10px 0; border-top: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.area-table td:first-child { color: var(--accent); font-weight: 600; }
+.area-table td.mono { font-family: 'DM Mono', monospace; }
+.area-table input, .area-table select {
+  background: transparent; border: none;
+  border-bottom: 1px dashed var(--border2);
+  border-radius: 0; padding: 2px 0;
+  font-size: 13px; font-weight: 500;
+  color: var(--text); font-family: 'Noto Sans KR', sans-serif;
+  width: 100%; min-width: 60px;
+}
+.area-table input:focus, .area-table select:focus {
+  outline: none; border-bottom-color: var(--accent);
+}
+.corridor-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.corridor-row label {
+  font-size: 10px; color: var(--text3); font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.corridor-row select {
+  background: transparent; border: none;
+  border-bottom: 1px dashed var(--border2);
+  border-radius: 0; padding: 2px 0;
+  font-size: 13px; font-weight: 500; color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">APT TRACKER</a>
+  <nav class="nav-links">
+    <a class="nav-link active" href="index.html">시세 조회</a>
+    <a class="nav-link" href="folder.html">내 폴더</a>
+    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleAppTheme()">☀️ 라이트</button>
+  </nav>
+</header>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-label">지역 선택</div>
+      <select id="sidoSelect" onchange="onSidoChange()"></select>
+      <select id="sigunguSelect" style="margin-top:6px;" onchange="resetSearch()"></select>
+    </div>
+
+    <div>
+      <div class="sidebar-label">아파트 검색</div>
+      <div class="search-wrap">
+        <div class="search-box">
+          <input type="text" id="searchInput"
+            placeholder="이름, 일부, 초성 입력"
+            oninput="onSearchInput()"
+            onkeydown="onSearchKeydown(event)"
+            autocomplete="off"
+          />
+          <button class="btn btn-primary" id="searchBtn" onclick="triggerSearch()">검색</button>
+        </div>
+        <div class="candidates" id="candidateBox" style="display:none;"></div>
+      </div>
+      <div class="search-hint">예: "문래", "자이", "문래 자이", "ㅁㄹㅈㅇ"</div>
+      <div id="statusMsg"></div>
+
+      <!-- 비교 목록 아래로 이동됨 -->
+    </div>
+
+    <div>
+      <div class="sidebar-label">
+        비교 중 <span id="aptCount" style="color:var(--accent);font-size:11px;">0/5</span>
+      </div>
+      <div class="apt-list" id="aptList">
+        <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px 0;">검색 후 최대 5개까지 추가됩니다</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🏢</div>
+      <h2>아파트를 검색해보세요</h2>
+      <p>지역 선택 후 아파트 이름 일부만 입력해도 자동으로 찾아드립니다</p>
+    </div>
+
+    <div id="contentArea" style="display:none; flex-direction:column; gap:1.5rem;">
+
+      <!-- Auto info -->
+      <div class="card">
+        <div class="card-title">자동 입력 정보</div>
+        <div id="autoInfo"></div>
+      </div>
+
+      <!-- Manual info -->
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <span>직접 입력 정보</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <select id="folderSelect" style="font-size:12px;padding:5px 8px;min-width:100px;"></select>
+            <button class="btn btn-sm btn-primary" id="saveBtn" onclick="saveToFolder()">저장하기</button>
+            <span id="saveStatusMsg" style="font-size:11px;color:var(--text3);"></span>
+          </div>
+        </div>
+        <div class="corridor-row">
+          <label>복도 형식</label>
+          <select id="m_corridor">
+            <option value="">선택</option>
+            <option>계단식</option><option>복도식</option><option>혼합</option>
+          </select>
+        </div>
+        <div id="manualAreaTable"></div>
+      </div>
+
+      <!-- Chart -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="margin-bottom:0;">실거래가 추이
+            <span style="color:var(--text3);font-weight:400;">최근 12개월</span>
+          </div>
+          <div class="area-pills" id="areaPills"></div>
+        </div>
+        <div class="legend" id="chartLegend"></div>
+        <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+      </div>
+
+      <!-- Trade table -->
+      <div class="card">
+        <div class="card-title">최근 거래 내역
+          <span id="tradeCount" style="color:var(--accent);font-weight:400;"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="trade-table">
+            <thead><tr><th>거래일</th><th>아파트</th><th>전용면적</th><th>층</th><th>거래가</th></tr></thead>
+            <tbody id="tradeBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const apartments = [];
+let activeApt = null;
+let selectedArea = 'all';
+let candidateFocusIdx = -1;
+let currentCandidates = [];
+let searchDebounceTimer = null;
+
+// ─── 지역 셀렉트 초기화 ──────────────────────────────────────────
+const sidoEl = document.getElementById('sidoSelect');
+const sigunguEl = document.getElementById('sigunguSelect');
+
+getSidoList().forEach(s => {
+  const o = document.createElement('option'); o.value = s; o.textContent = s; sidoEl.appendChild(o);
+});
+sidoEl.value = '서울특별시';
+onSidoChange();
+sigunguEl.value = '11190'; // 영등포구 기본
+
+function onSidoChange() {
+  const sido = sidoEl.value;
+  sigunguEl.innerHTML = '<option value="">시/군/구 선택</option>';
+  Object.entries(getSigunguList(sido)).forEach(([name, code]) => {
+    const o = document.createElement('option'); o.value = code; o.textContent = name;
+    sigunguEl.appendChild(o);
+  });
+  resetSearch();
+}
+
+function resetSearch() {
+  closeCandidates();
+  currentCandidates = [];
+}
+
+// ─── 상태 메시지 ──────────────────────────────────────────────────
+function setStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.innerHTML = msg ? `<div class="status-msg ${type}">${msg}</div>` : '';
+}
+
+// ─── 검색 입력 이벤트 ─────────────────────────────────────────────
+function onSearchInput() {
+  const q = document.getElementById('searchInput').value.trim();
+  clearTimeout(searchDebounceTimer);
+  if (!q) { closeCandidates(); return; }
+
+  // 300ms 디바운스
+  searchDebounceTimer = setTimeout(() => showCandidates(q), 300);
+}
+
+async function showCandidates(q) {
+  const lawdCd = sigunguEl.value;
+  if (!lawdCd) { setStatus('지역을 먼저 선택해주세요.', 'error'); return; }
+
+  const box = document.getElementById('candidateBox');
+  box.style.display = 'block';
+  box.innerHTML = `<div class="candidate-loading">검색 중...</div>`;
+  candidateFocusIdx = -1;
+
+  const results = await searchCandidates(lawdCd, q);
+  currentCandidates = results;
+
+  if (!results.length) {
+    box.innerHTML = `<div class="candidate-empty">일치하는 아파트가 없습니다</div>`;
+    return;
+  }
+
+  box.innerHTML = results.map((name, i) => {
+    const highlighted = highlightMatch(name, q);
+    return `<div class="candidate-item" data-idx="${i}" onclick="selectCandidate(${i})">
+      <span>${highlighted}</span>
+    </div>`;
+  }).join('') + (results.length >= 20 ? `<div class="candidate-empty" style="font-size:11px;">검색어를 더 구체적으로 입력하면 좁혀집니다</div>` : '');
+}
+
+// 검색어 하이라이트
+function highlightMatch(name, query) {
+  const tokens = query.trim().split(/\s+/).filter(Boolean);
+  let result = name;
+  tokens.forEach(t => {
+    if (t.length < 1) return;
+    const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+    result = result.replace(re, '<span class="match-highlight">$1</span>');
+  });
+  return result;
+}
+
+// 키보드 탐색
+function onSearchKeydown(e) {
+  const box = document.getElementById('candidateBox');
+  if (box.style.display === 'none') {
+    if (e.key === 'Enter') triggerSearch();
+    return;
+  }
+  const items = box.querySelectorAll('.candidate-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    candidateFocusIdx = Math.min(candidateFocusIdx + 1, items.length - 1);
+    updateFocus(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    candidateFocusIdx = Math.max(candidateFocusIdx - 1, 0);
+    updateFocus(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (candidateFocusIdx >= 0 && currentCandidates[candidateFocusIdx]) {
+      selectCandidate(candidateFocusIdx);
+    } else if (currentCandidates.length === 1) {
+      selectCandidate(0);
+    }
+  } else if (e.key === 'Escape') {
+    closeCandidates();
+  }
+}
+
+function updateFocus(items) {
+  items.forEach((el, i) => {
+    el.classList.toggle('focused', i === candidateFocusIdx);
+  });
+  if (candidateFocusIdx >= 0) items[candidateFocusIdx]?.scrollIntoView({ block:'nearest' });
+}
+
+function closeCandidates() {
+  document.getElementById('candidateBox').style.display = 'none';
+  candidateFocusIdx = -1;
+}
+
+// 후보 선택 → 데이터 로드
+async function selectCandidate(idx) {
+  const name = currentCandidates[idx];
+  if (!name) return;
+  document.getElementById('searchInput').value = name;
+  closeCandidates();
+  await loadApartment(name);
+}
+
+// 검색 버튼 클릭 또는 엔터 (후보 없이 직접 검색)
+async function triggerSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) { setStatus('아파트 이름을 입력해주세요.', 'error'); return; }
+
+  // 정확히 일치하는 후보가 있으면 바로 로드
+  if (currentCandidates.includes(q)) {
+    closeCandidates();
+    await loadApartment(q);
+    return;
+  }
+
+  // 아니면 후보 검색 먼저
+  const lawdCd = sigunguEl.value;
+  if (!lawdCd) { setStatus('지역을 먼저 선택해주세요.', 'error'); return; }
+
+  const results = await searchCandidates(lawdCd, q);
+  if (results.length === 1) {
+    closeCandidates();
+    await loadApartment(results[0]);
+  } else if (results.length > 1) {
+    currentCandidates = results;
+    showCandidates(q);
+  } else {
+    setStatus(`"${q}"와 일치하는 아파트가 없습니다.`, 'error');
+  }
+}
+
+// 클릭 외부 시 드롭다운 닫기
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-wrap')) closeCandidates();
+});
+
+// ─── 실제 데이터 로드 ─────────────────────────────────────────────
+async function loadApartment(exactName) {
+  const lawdCd = sigunguEl.value;
+  if (apartments.length >= 5) { setStatus('최대 5개까지 추가할 수 있습니다.', 'error'); return; }
+  if (apartments.find(a => a.name === exactName && a.lawdCd === lawdCd)) {
+    setStatus('이미 추가된 아파트입니다.', 'error'); return;
+  }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  setStatus(`"${exactName}" 3년 거래 데이터 조회 중... (잠시 기다려주세요)`, 'loading');
+
+  const { trades, buildYear } = await fetchTrades(lawdCd, exactName, getLast36Months());
+  btn.disabled = false;
+
+  if (!trades.length) {
+    setStatus(`최근 3년 내 "${exactName}"의 거래 기록이 없습니다.`, 'error');
+    return;
+  }
+
+  setStatus('', '');
+  document.getElementById('searchInput').value = '';
+  currentCandidates = [];
+
+  const currentYear = new Date().getFullYear();
+  const buildingAge  = buildYear ? currentYear - buildYear : null;
+
+  // 12개월 이내 거래만 필터 (차트/최근거래 표시용)
+  const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 1);
+  const recentTrades = trades.filter(t => new Date(t.date) >= cutoff);
+
+  const areas = [...new Set(trades.map(t => Math.round(t.area)))].sort((a,b)=>a-b);
+
+  // 면적별 통계 계산
+  const areaStats = areas.map(area => {
+    const all    = trades.filter(t => Math.round(t.area) === area);
+    const recent = recentTrades.filter(t => Math.round(t.area) === area);
+    const sorted = [...all].sort((a,b) => b.date.localeCompare(a.date));
+    const latestTrade = sorted[0];
+    const highTrade   = all.reduce((max, t) => t.price > max.price ? t : max, all[0]);
+    return {
+      area,
+      pyeong:       Math.round(area / 3.3),
+      count:        recent.length,
+      latestPrice:  (latestTrade.price / 10000).toFixed(2),
+      latestDate:   latestTrade.date,
+      highPrice:    (highTrade.price / 10000).toFixed(2),
+      highDate:     highTrade.date,
+      isAtHigh:     latestTrade.price >= highTrade.price
+    };
+  });
+
+  const apt = {
+    name: exactName,
+    lawdCd,
+    regionName: getRegionName(lawdCd),
+    color: COLORS[apartments.length],
+    trades: recentTrades, // 차트/표는 최근 12개월
+    allTrades: trades,    // 역대 최고가 계산용
+    areas, areaStats,
+    buildYear, buildingAge
+  };
+
+  apartments.push(apt);
+  activeApt = apt;
+  renderSidebar();
+  renderContent();
+  updateSaveBar();
+  saveSession();
+}
+
+// ─── 폴더 셀렉트 업데이트 ─────────────────────────────────────────
+function updateSaveBar() {
+  const sel = document.getElementById('folderSelect');
+  const btn = document.getElementById('saveBtn');
+  if (!sel) return;
+  const folders = getFolders();
+  const prev = sel.value;
+  sel.innerHTML = folders.length
+    ? folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')
+    : '<option value="">폴더 없음</option>';
+  if (prev && folders.find(f => f.id === prev)) sel.value = prev;
+  if (btn) btn.disabled = !apartments.length || !folders.length;
+}
+
+function saveToFolder() {
+  const folderId = document.getElementById('folderSelect').value;
+  const msgEl = document.getElementById('saveStatusMsg');
+  if (!folderId || !activeApt) {
+    msgEl.textContent = '폴더를 선택해주세요.';
+    msgEl.style.color = 'var(--danger)';
+    return;
+  }
+  const areaInputs = {};
+  document.querySelectorAll('#manualAreaTable input[data-area]').forEach(el => {
+    const area = el.dataset.area;
+    const field = el.dataset.field;
+    if (!areaInputs[area]) areaInputs[area] = {};
+    areaInputs[area][field] = el.value;
+  });
+  const aptData = {
+    ...activeApt,
+    manual: {
+      corridorType: document.getElementById('m_corridor').value,
+      areas: areaInputs,
+      notes: ''
+    }
+  };
+  const isUpdate = !!getFolders()
+    .find(f => f.id === folderId)
+    ?.apartments?.find?.(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd);
+
+  // 기존 notes 유지
+  const folder = getFolders().find(f => f.id === folderId);
+  if (folder) {
+    const existing = (folder.apartments || []).find(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd);
+    if (existing) aptData.manual.notes = existing.manual?.notes || '';
+  }
+
+  saveApartment(folderId, aptData);
+
+  msgEl.style.color = 'var(--accent)';
+  msgEl.textContent = isUpdate ? '업데이트 완료!' : '저장 완료!';
+  clearTimeout(msgEl._t);
+  msgEl._t = setTimeout(() => { msgEl.textContent = ''; }, 2500);
+}
+
+// ─── 사이드바 렌더 ────────────────────────────────────────────────
+function renderSidebar() {
+  document.getElementById('aptCount').textContent = `${apartments.length}/5`;
+  const list = document.getElementById('aptList');
+  if (!apartments.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px 0;">검색 후 최대 5개까지 추가됩니다</div>';
+    return;
+  }
+  list.innerHTML = apartments.map((a,i) => `
+    <div class="apt-item ${a===activeApt?'active':''}" onclick="switchApt(${i})">
+      <span style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block;"></span>
+      <div style="flex:1;min-width:0;">
+        <div class="apt-item-name">${a.name}</div>
+        <div class="apt-item-sub">${a.regionName} · ${a.areaStats[a.areaStats.length-1].latestPrice}억</div>
+      </div>
+      <span class="apt-remove" onclick="removeApt(event,${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+function switchApt(i) { activeApt = apartments[i]; renderSidebar(); renderContent(); saveSession(); }
+function removeApt(e, i) {
+  e.stopPropagation();
+  apartments.splice(i, 1);
+  if (!apartments.length) {
+    activeApt = null;
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('contentArea').style.display = 'none';
+  } else {
+    activeApt = apartments[Math.min(i, apartments.length-1)];
+    renderContent();
+  }
+  renderSidebar(); updateSaveBar(); saveSession();
+}
+
+// ─── 메인 콘텐츠 렌더 ────────────────────────────────────────────
+function renderContent() {
+  if (!activeApt) return;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('contentArea').style.display = 'flex';
+
+  // 자동 입력 정보 — 건물 공통 + 면적별 테이블
+  const { buildYear, buildingAge } = activeApt;
+  const buildingInfo = buildYear
+    ? `<div style="display:flex;gap:24px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;">건축연도</div>
+          <div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace;">${buildYear}년</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:4px;">건물 연차</div>
+          <div style="font-size:16px;font-weight:600;font-family:'DM Mono',monospace;">${buildingAge}년차</div>
+        </div>
+      </div>`
+    : '';
+
+  document.getElementById('autoInfo').innerHTML = buildingInfo + `
+    <table class="area-table">
+      <thead>
+        <tr>
+          <th>전용면적</th>
+          <th>평형</th>
+          <th>최근 거래 (12개월)</th>
+          <th>최근 거래가</th>
+          <th>3년 최고가</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeApt.areaStats.map(s => `
+          <tr>
+            <td>${s.area}㎡</td>
+            <td>${s.pyeong}평</td>
+            <td class="mono">${s.count}건</td>
+            <td class="mono">${s.latestPrice}억 <span style="color:var(--text3);font-size:11px;">(${s.latestDate})</span></td>
+            <td class="mono" style="color:${s.highPrice && s.isAtHigh ? '#4ade80' : 'var(--text3)'};">
+              ${s.highPrice ? s.highPrice + '억' : '—'}
+              ${s.highPrice
+                ? `<span style="font-size:10px;margin-left:2px;">${s.isAtHigh ? '▲ 현재 고점' : `<span style="color:var(--text3);">(${s.highDate})</span>`}</span>`
+                : `<span style="font-size:10px;color:var(--text3);">재검색 필요</span>`}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  // 직접 입력 정보 — 면적별 입력 테이블
+  const manual = activeApt.manual || {};
+  document.getElementById('m_corridor').value = manual.corridorType || '';
+  document.getElementById('manualAreaTable').innerHTML = `
+    <table class="area-table">
+      <thead>
+        <tr>
+          <th>타입</th>
+          <th>공급면적 (㎡)</th>
+          <th>세대수</th>
+          <th>방</th>
+          <th>화장실</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeApt.areaStats.map(s => {
+          const saved = (manual.areas || {})[s.area] || {};
+          return `
+          <tr>
+            <td style="line-height:1.6;">${s.area}㎡<br><span style="color:var(--text3);font-size:11px;">${s.pyeong}평</span></td>
+            <td><input type="text" data-area="${s.area}" data-field="supply" value="${saved.supply||''}" placeholder="예: 110.56" /></td>
+            <td><input type="text" data-area="${s.area}" data-field="units" value="${saved.units||''}" placeholder="예: 300" /></td>
+            <td><input type="text" data-area="${s.area}" data-field="rooms" value="${saved.rooms||''}" placeholder="예: 3" /></td>
+            <td><input type="text" data-area="${s.area}" data-field="bathrooms" value="${saved.bathrooms||''}" placeholder="예: 2" /></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+
+  renderAreaPills();
+  renderChart('priceChart', apartments, selectedArea);
+  renderLegend();
+  renderTradeTable();
+}
+
+function renderAreaPills() {
+  const allAreas = getUniqueAreas(apartments);
+  document.getElementById('areaPills').innerHTML =
+    `<button class="pill ${selectedArea==='all'?'active':''}" onclick="setArea('all')">전체</button>` +
+    allAreas.map(a=>`<button class="pill ${selectedArea==a?'active':''}" onclick="setArea(${a})">${a}㎡ (${Math.round(a/3.3)}평)</button>`).join('');
+}
+function renderLegend() {
+  document.getElementById('chartLegend').innerHTML = apartments.map(a=>`
+    <span class="legend-item"><span class="legend-dot" style="background:${a.color};"></span>${a.name}</span>
+  `).join('');
+}
+function setArea(a) {
+  selectedArea = a;
+  renderAreaPills();
+  renderChart('priceChart', apartments, selectedArea);
+  renderTradeTable();
+}
+function renderTradeTable() {
+  const allTrades = apartments.flatMap(a=>a.trades.map(t=>({...t,aptColor:a.color})));
+  const filtered = selectedArea==='all' ? allTrades : allTrades.filter(t=>Math.round(t.area)==selectedArea);
+  const sorted = [...filtered].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
+  document.getElementById('tradeCount').textContent = `(${sorted.length}건)`;
+  document.getElementById('tradeBody').innerHTML = sorted.map(t=>`
+    <tr>
+      <td>${t.date}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:6px;height:6px;border-radius:50%;background:${t.aptColor};flex-shrink:0;"></span>${t.aptNm}</span></td>
+      <td>${t.area.toFixed(1)}㎡ (${Math.round(t.area/3.3)}평)</td>
+      <td>${t.floor}층</td>
+      <td class="mono" style="color:var(--text);">${(t.price/10000).toFixed(2)}억</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">거래 내역이 없습니다</td></tr>';
+}
+
+updateSaveBar();
+
+// ─── 세션 저장/복원 ──────────────────────────────────────────────
+const SESSION_KEY = 'apt_tracker_session';
+
+function saveSession() {
+  try {
+    const activeIdx = apartments.indexOf(activeApt);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ apartments, activeIdx, selectedArea }));
+  } catch(e) { /* localStorage 용량 초과 시 무시 */ }
+}
+
+function restoreSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return;
+    const { apartments: saved, activeIdx, selectedArea: savedArea } = JSON.parse(raw);
+    if (!saved || !saved.length) return;
+    // 구 버전 세션 감지: highPrice 필드 없으면 초기화
+    const isOldFormat = saved.some(a => (a.areaStats || []).some(s => s.highPrice === undefined));
+    if (isOldFormat) { localStorage.removeItem(SESSION_KEY); return; }
+    apartments.push(...saved);
+    selectedArea = savedArea || 'all';
+    activeApt = apartments[activeIdx] ?? apartments[0];
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('contentArea').style.display = 'flex';
+    renderSidebar();
+    renderContent();
+    updateSaveBar();
+  } catch(e) { localStorage.removeItem(SESSION_KEY); }
+}
+
+restoreSession();
+</script>
+</body>
+</html>

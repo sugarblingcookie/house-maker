@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>APT TRACKER — 내 폴더</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+<script src="data.js"></script>
+<script src="theme.js"></script>
+<style>
+/* Folder tabs */
+.folder-tabs {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; padding: 1.5rem 2rem 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 56px; z-index: 90;
+}
+.folder-tab {
+  padding: 8px 16px; border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid transparent; border-bottom: none;
+  font-size: 13px; cursor: grab; color: var(--text2);
+  background: transparent; font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.15s; display: flex; align-items: center; gap: 8px;
+  user-select: none;
+}
+.folder-tab:hover { color: var(--text); background: var(--surface); }
+.folder-tab.active { color: var(--accent); background: var(--surface); border-color: var(--border); }
+.folder-tab .tab-remove { font-size: 11px; color: var(--text3); cursor: pointer; }
+.folder-tab .tab-remove:hover { color: var(--danger); }
+.folder-tab.drag-over { border-color: var(--accent); background: var(--surface); opacity: 0.7; }
+.folder-tab.dragging { opacity: 0.35; cursor: grabbing; }
+.btn-new-folder {
+  padding: 7px 14px; border-radius: var(--radius);
+  border: 1px dashed var(--border2); font-size: 13px;
+  color: var(--text3); background: transparent; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; transition: all 0.15s;
+  margin-bottom: 1px;
+}
+.btn-new-folder:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Spreadsheet */
+.sheet-wrap { overflow-x: auto; }
+.sheet {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; min-width: 900px;
+}
+/* 메인 헤더 (thead th) */
+.sheet thead th {
+  text-align: left; font-size: 11px; font-weight: 600;
+  color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 11px 14px; white-space: nowrap;
+  background: var(--surface3, #1e1e2a);
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+}
+/* 메인 데이터 행 */
+.sheet tr.apt-main-row td {
+  padding: 12px 14px; vertical-align: middle;
+  background: var(--surface2);
+  border-bottom: 2px solid var(--accent);
+  color: var(--text);
+  font-size: 14px; font-weight: 400;
+}
+.sheet tr.apt-main-row:hover td { background: rgba(255,255,255,0.04); }
+/* 타입 필터 드롭다운 */
+.type-filter-wrap { position: relative; display: inline-block; vertical-align: middle; margin-left: 8px; }
+.type-filter-trigger {
+  font-size: 10px; font-weight: 500; padding: 2px 8px;
+  border: 1px solid var(--border2); border-radius: 4px;
+  background: var(--surface2); color: var(--text2);
+  cursor: pointer; white-space: nowrap;
+  font-family: 'Noto Sans KR', sans-serif;
+  letter-spacing: 0; text-transform: none;
+  transition: border-color 0.15s;
+}
+.type-filter-trigger:hover { border-color: var(--accent); color: var(--accent); }
+.type-filter-trigger.filtered { border-color: var(--accent); color: var(--accent); }
+.type-filter-panel {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 6px 0;
+  z-index: 200; min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.type-filter-panel.open { display: block; }
+.type-filter-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer; font-size: 12px;
+  color: var(--text2); white-space: nowrap;
+  transition: background 0.1s;
+}
+.type-filter-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.type-filter-item input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+
+/* 서브 헤더 행 */
+.sheet tr.apt-sub-header th {
+  text-align: left; font-size: 11px; font-weight: 600;
+  color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 11px 14px; white-space: nowrap;
+  background: var(--surface3, #1e1e2a);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+/* 서브 데이터 행 */
+.sheet tr.apt-sub-row td {
+  padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text2); vertical-align: middle;
+  background: transparent;
+  font-size: 11px; font-weight: 400;
+}
+.sheet tr.apt-sub-row:last-of-type td { border-bottom: none; }
+.sheet tr.apt-sub-row:hover td { background: rgba(255,255,255,0.02); }
+/* 아파트 구분선 */
+.sheet tr.apt-divider td {
+  padding: 0; height: 6px;
+  background: var(--bg);
+  border-bottom: none;
+}
+.sheet input, .sheet select {
+  background: transparent; border: none;
+  border-bottom: 1px dashed var(--border2);
+  border-radius: 0; padding: 3px 0;
+  font-size: 11px; font-weight: 400; color: var(--text2);
+  width: 100%; min-width: 60px;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.sheet input:focus, .sheet select:focus { border-bottom-color: var(--accent); outline: none; }
+.sheet select option { background: #222; }
+.apt-name-cell { font-weight: 600; color: var(--accent); font-size: 14px; }
+.price-cell { font-family: 'DM Mono', monospace; color: var(--text2); font-size: 11px; font-weight: 400; }
+
+/* Memo section */
+.memo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.memo-field label {
+  display: block; font-size: 10px; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px;
+}
+
+/* Photo gallery */
+.photo-upload-area {
+  border: 1.5px dashed var(--border2); border-radius: var(--radius-lg);
+  padding: 24px; text-align: center; cursor: pointer;
+  transition: all 0.15s; color: var(--text3); font-size: 13px;
+}
+.photo-upload-area:hover { border-color: var(--accent); color: var(--accent); }
+.photo-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; margin-top: 12px;
+}
+.photo-card {
+  background: var(--surface2); border-radius: var(--radius);
+  overflow: hidden; border: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+.photo-card:hover { border-color: var(--border2); }
+.photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.photo-card-footer {
+  padding: 8px 10px; display: flex; align-items: center; gap: 6px;
+}
+.photo-card-footer input {
+  flex: 1; background: transparent; border: none;
+  font-size: 12px; color: var(--text2); padding: 2px 0;
+}
+.photo-card-footer input:focus { outline: none; color: var(--text); }
+.photo-del { font-size: 11px; color: var(--text3); cursor: pointer; flex-shrink: 0; }
+.photo-del:hover { color: var(--danger); }
+
+/* Import/Export bar */
+.io-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.io-bar label { font-size: 12px; color: var(--text2); }
+
+/* Section tabs inside folder */
+.section-nav {
+  display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
+}
+.section-tab {
+  padding: 8px 16px; font-size: 13px; color: var(--text2);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.section-tab:hover { color: var(--text); }
+.section-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.section-content { display: none; }
+.section-content.active { display: block; }
+
+/* Sub-tabs inside 종합 */
+.subsection-nav {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem;
+}
+.subsection-tab {
+  padding: 6px 14px; font-size: 12px; color: var(--text3);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.subsection-tab:hover { color: var(--text2); }
+.subsection-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.subsection-content { display: none; }
+.subsection-content.active { display: block; }
+
+/* 등급 배지 공통 색상 (S=초록, A=노랑, B=주황, C=회색) */
+.grade-S { color: #4ade80; }
+.grade-A { color: #f0c040; }
+.grade-B { color: #f5a623; }
+.grade-C { color: var(--text3); }
+
+/* 임장 보고서 */
+.report-entry {
+  padding: 16px 0; border-bottom: 1px solid var(--border);
+}
+.report-entry:last-child { border-bottom: none; }
+.report-entry-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.report-entry-body {
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+}
+.report-photo-box {
+  width: 240px; height: 180px;
+  background: var(--surface2); border: 1.5px dashed var(--border2);
+  border-radius: var(--radius); display: flex; align-items: center;
+  justify-content: center; overflow: hidden; cursor: pointer;
+  transition: border-color 0.15s;
+}
+.report-photo-box:hover { border-color: var(--accent); }
+.report-photo-box img { width:100%;height:100%;object-fit:cover;display:block; }
+.report-photo-placeholder { font-size:12px;color:var(--text3);pointer-events:none;text-align:center;padding:8px; }
+.report-textarea {
+  width: 100%; min-height: 180px; resize: vertical;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 10px 12px;
+  font-size: 13px; color: var(--text); font-family: 'Noto Sans KR', sans-serif;
+  line-height: 1.7; box-sizing: border-box;
+}
+.report-textarea:focus { outline: none; border-color: var(--accent); }
+.report-textarea::placeholder { color: var(--text3); }
+
+.no-folder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 16px; padding: 80px 20px; text-align: center;
+}
+.no-folder h2 { font-size: 20px; font-weight: 500; color: var(--text2); }
+.no-folder p { font-size: 13px; color: var(--text3); max-width: 280px; }
+
+.auto-save-tag {
+  font-size: 10px; color: var(--text3); padding: 3px 8px;
+  background: var(--surface2); border-radius: 999px; margin-left: 8px;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">APT TRACKER</a>
+  <nav class="nav-links">
+    <a class="nav-link" href="index.html">시세 조회</a>
+    <a class="nav-link active" href="folder.html">내 폴더</a>
+    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleAppTheme()">☀️ 라이트</button>
+  </nav>
+</header>
+
+<!-- Folder tabs -->
+<div class="folder-tabs" id="folderTabs">
+  <button class="btn-new-folder" onclick="createNewFolder()">+ 새 폴더</button>
+</div>
+
+<!-- Main content -->
+<div id="noFolderMsg" class="no-folder" style="display:none;">
+  <div style="font-size:48px;opacity:0.2;">📁</div>
+  <h2>폴더가 없습니다</h2>
+  <p>위의 "+ 새 폴더" 버튼으로 지역별 폴더를 만들어보세요</p>
+  <button class="btn btn-primary" onclick="createNewFolder()">+ 새 폴더 만들기</button>
+</div>
+
+<div id="folderContent" class="main" style="display:none;">
+
+  <!-- IO bar -->
+  <div class="card" style="padding:1rem 1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;font-weight:500;" id="folderTitle">폴더명</span>
+        <span class="auto-save-tag">자동저장</span>
+      </div>
+      <div class="io-bar">
+        <button class="btn btn-sm" style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent);" onclick="openReport()">📄 레포트 내보내기</button>
+        <span style="font-size:12px;color:var(--text3);margin-left:4px;">데이터:</span>
+        <button class="btn btn-sm" onclick="exportJSON()">JSON 내보내기</button>
+        <label class="btn btn-sm" style="cursor:pointer;">
+          JSON 불러오기
+          <input type="file" accept=".json" style="display:none;" onchange="handleImport(event)" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 위치 & 생활권역 (항상 표시) -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:14px;">위치 &amp; 생활권역 <span class="auto-save-tag">자동저장</span></div>
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:0 0 auto;">
+        <div id="loc_photo_box" style="width:264px;height:198px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+          onclick="locPhotoBoxClick(event)"
+          ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+          ondragleave="this.style.borderColor=''"
+          ondrop="handleLocPhotoDrop(event)">
+          <span id="loc_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;text-align:center;">+ 클릭 / 드래그 / Ctrl+V</span>
+          <img id="loc_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openLocLightbox(event)" title="클릭하면 크게 보기" />
+        </div>
+        <input type="file" id="loc_photo_input" accept="image/*" style="display:none;" onchange="handleLocPhoto(event)" />
+        <button id="loc_photo_del" class="btn btn-sm" style="margin-top:6px;width:264px;display:none;" onclick="removeLocPhoto()">사진 삭제</button>
+      </div>
+
+      <!-- 라이트박스 -->
+      <div id="loc_lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:999;align-items:center;justify-content:center;" onclick="closeLocLightbox()">
+        <img id="loc_lightbox_img" style="max-width:90vw;max-height:90vh;border-radius:var(--radius);object-fit:contain;" />
+      </div>
+
+      <div style="flex:1;min-width:180px;">
+        <div class="memo-field">
+          <label>📍 메모</label>
+          <textarea id="loc_memo" placeholder="위치, 생활권역, 주변 환경 등 자유롭게 기록..." oninput="saveMemoDebounced()" style="height:174px;"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section nav -->
+  <div class="section-nav">
+    <button class="section-tab active" onclick="switchSection('comprehensive', this)">입지분석</button>
+    <button class="section-tab" onclick="switchSection('spreadsheet', this)">시세 정리</button>
+    <button class="section-tab" onclick="switchSection('graphs', this)">시세 그래프</button>
+    <button class="section-tab" onclick="switchSection('photos', this)">임장 보고서</button>
+    <button class="section-tab" onclick="switchSection('conclusion', this)">결론</button>
+  </div>
+
+  <!-- Spreadsheet -->
+  <div id="sec-spreadsheet" class="section-content">
+    <div class="card" style="padding:0;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <div class="card-title" style="margin-bottom:0;">시세 정리 <span id="aptCountBadge" style="color:var(--accent);font-weight:400;"></span></div>
+        <a href="index.html" class="btn btn-sm">+ 시세 조회에서 추가</a>
+      </div>
+      <div class="sheet-wrap">
+        <table class="sheet" id="aptSheet">
+          <thead>
+            <tr>
+              <th>아파트명</th>
+              <th>지역</th>
+              <th>건축연도</th>
+              <th>전체 세대수</th>
+              <th>복도 형식</th>
+              <th>거래건수</th>
+              <th>메모</th>
+              <th></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="aptSheetBody"></tbody>
+        </table>
+      </div>
+      <div id="emptySheet" style="text-align:center;padding:40px;color:var(--text3);font-size:13px;display:none;">
+        저장된 아파트가 없습니다. 시세 조회에서 검색 후 폴더에 저장해보세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 종합 -->
+  <div id="sec-comprehensive" class="section-content active">
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <span>입지분석 <span class="auto-save-tag">자동저장</span></span>
+        <button class="btn btn-sm" id="criteria_toggle_btn" onclick="toggleCriteria()">기준표 보기 ▾</button>
+      </div>
+
+      <!-- 기준표 (토글) -->
+      <div id="criteria_panel" style="display:none;margin-bottom:1.25rem;overflow-x:auto;">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;">수도권 입지 등급 (구 단위)</div>
+        <table class="sheet" style="width:100%;table-layout:fixed;min-width:560px;">
+          <thead>
+            <tr>
+              <th style="width:48px;text-align:center;">등급</th>
+              <th style="text-align:center;">직장</th>
+              <th style="text-align:center;">교통</th>
+              <th style="text-align:center;">학군</th>
+              <th style="text-align:center;">환경</th>
+              <th style="text-align:center;">공급</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:rgba(255,255,255,0.03);">
+              <td style="text-align:center;font-size:11px;color:var(--text3);font-weight:500;">기준</td>
+              <td style="text-align:center;font-size:11px;color:var(--text3);">종사자수</td>
+              <td style="text-align:center;font-size:11px;color:var(--text3);">업무지구<br>접근성</td>
+              <td style="text-align:center;font-size:11px;color:var(--text3);">학업성취도</td>
+              <td style="text-align:center;font-size:11px;color:var(--text3);">편의시설<br>(백화점·마트)</td>
+              <td style="text-align:center;font-size:11px;color:var(--text3);">3년 내 예정공급<br>평균</td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-size:18px;font-weight:700;color:#4ade80;">S</td>
+              <td style="text-align:center;font-size:12px;">종사자수<br>30만명</td>
+              <td style="text-align:center;font-size:12px;">강남 30분<br>이내</td>
+              <td style="text-align:center;font-size:12px;"><b>95%</b><br>3개 이상</td>
+              <td style="text-align:center;font-size:12px;">백화점<br>2개 이상</td>
+              <td style="text-align:center;font-size:12px;">인구 0.25% 이내<br><span style="color:var(--text3);font-size:11px;">(적정수요 0.5배 이하)</span></td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-size:18px;font-weight:700;color:#f0c040;">A</td>
+              <td style="text-align:center;font-size:12px;">20만명<br>이상</td>
+              <td style="text-align:center;font-size:12px;">강남 1시간 및<br>부도심 30분 이내</td>
+              <td style="text-align:center;font-size:12px;"><b>90%</b><br>3개 이상</td>
+              <td style="text-align:center;font-size:12px;">백화점<br>1개 이상</td>
+              <td style="text-align:center;font-size:12px;">인구 0.5% 이내<br><span style="color:var(--text3);font-size:11px;">(적정수요 1배 이내)</span></td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-size:18px;font-weight:700;color:#f5a623;">B</td>
+              <td style="text-align:center;font-size:12px;">10만명<br>이상</td>
+              <td style="text-align:center;font-size:12px;">부도심<br>1시간 이내</td>
+              <td style="text-align:center;font-size:12px;"><b>85%</b><br>3개 이상</td>
+              <td style="text-align:center;font-size:12px;">대형마트<br>1개 이상</td>
+              <td style="text-align:center;font-size:12px;">인구 1.0% 이내<br><span style="color:var(--text3);font-size:11px;">(적정수요 2배 이내)</span></td>
+            </tr>
+            <tr>
+              <td style="text-align:center;font-size:18px;font-weight:700;color:var(--text3);">C</td>
+              <td style="text-align:center;font-size:12px;">10만명<br>이하</td>
+              <td style="text-align:center;font-size:12px;">부도심<br>1시간 이상</td>
+              <td style="text-align:center;font-size:12px;"><b>85%</b><br>3개 미만</td>
+              <td style="text-align:center;font-size:12px;">없음</td>
+              <td style="text-align:center;font-size:12px;">인구 1.0% 초과<br><span style="color:var(--text3);font-size:11px;">(적정수요 2배 초과)</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;">※ 수도권 입지평가는 직장·교통·학군·환경·공급으로 구 단위 평가</div>
+      </div>
+
+      <div class="subsection-nav">
+        <button class="subsection-tab active" onclick="switchSubSection('summary', this)">종합</button>
+        <button class="subsection-tab" onclick="switchSubSection('work', this)">1. 직장</button>
+        <button class="subsection-tab" onclick="switchSubSection('traffic', this)">2. 교통</button>
+        <button class="subsection-tab" onclick="switchSubSection('school', this)">3. 학군</button>
+        <button class="subsection-tab" onclick="switchSubSection('environment', this)">4. 환경</button>
+      </div>
+
+      <div id="subsec-summary" class="subsection-content active">
+        <div style="overflow-x:auto;">
+          <table class="sheet" style="width:100%;table-layout:fixed;">
+            <thead>
+              <tr>
+                <th style="text-align:center;">직장</th>
+                <th style="text-align:center;">교통</th>
+                <th style="text-align:center;">학군</th>
+                <th style="text-align:center;">환경</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="summary-grade-row">
+                <td id="sum_work"    style="text-align:center;font-size:22px;font-weight:700;padding:16px 12px;">-</td>
+                <td id="sum_traffic" style="text-align:center;font-size:22px;font-weight:700;padding:16px 12px;">-</td>
+                <td id="sum_school"  style="text-align:center;font-size:22px;font-weight:700;padding:16px 12px;">-</td>
+                <td id="sum_env"     style="text-align:center;font-size:22px;font-weight:700;padding:16px 12px;">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="subsec-work" class="subsection-content">
+
+        <!-- 지역 선택 -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">지역</div>
+            <select id="work_region_select" onchange="onWorkRegionChange()" style="width:100%;">
+              <option value="">지역 선택</option>
+            </select>
+          </div>
+          <div style="flex:2;min-width:160px;">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">시/군/구</div>
+            <select id="work_district_select" onchange="onWorkDistrictChange()" style="width:100%;" disabled>
+              <option value="">시/군/구 선택</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 결과 표시 -->
+        <div id="work_result" style="display:none;margin-bottom:20px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+            <div class="info-cell" style="background:var(--surface2);text-align:center;">
+              <div class="info-cell-label">직장 등급</div>
+              <div id="work_grade_badge" style="font-size:22px;font-weight:700;margin-top:4px;"></div>
+            </div>
+            <div class="info-cell" style="background:var(--surface2);">
+              <div class="info-cell-label">종사자 수</div>
+              <div id="work_workers" class="info-cell-value mono" style="margin-top:4px;"></div>
+            </div>
+            <div class="info-cell" style="background:var(--surface2);">
+              <div class="info-cell-label">사업체 수</div>
+              <div id="work_businesses" class="info-cell-value mono" style="margin-top:4px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 메모 -->
+        <div class="memo-grid">
+          <div class="memo-field">
+            <label>📝 직장 메모</label>
+            <textarea id="memo_work" placeholder="직장까지의 거리, 출퇴근 시간 등..." oninput="saveMemoDebounced()"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div id="subsec-traffic" class="subsection-content">
+
+        <!-- 교통 등급 -->
+        <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">교통 등급</div>
+            <select id="traffic_grade_select" onchange="onTrafficGradeChange()" style="width:120px;">
+              <option value="">선택</option>
+              <option value="S">S</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+          <div id="traffic_grade_result" style="display:none;">
+            <div class="info-cell" style="background:var(--surface2);text-align:center;min-width:80px;">
+              <div class="info-cell-label">등급</div>
+              <div id="traffic_grade_badge" style="font-size:22px;font-weight:700;margin-top:4px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 대중교통 소요시간 표 -->
+        <div style="overflow-x:auto;margin-bottom:20px;">
+          <table class="sheet" style="min-width:auto;">
+            <thead>
+              <tr>
+                <th style="width:100px;">목적지</th>
+                <th style="width:80px;">소요시간</th>
+                <th style="width:70px;">환승 횟수</th>
+                <th>메모</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--text);font-weight:500;white-space:nowrap;">강남역</td>
+                <td><input type="text" id="tc_gangnam_time" placeholder="예: 25분" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_gangnam_tr" placeholder="예: 1회" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_gangnam_memo" placeholder="메모..." oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;white-space:nowrap;">시청역</td>
+                <td><input type="text" id="tc_sicho_time" placeholder="예: 30분" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_sicho_tr" placeholder="예: 2회" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_sicho_memo" placeholder="메모..." oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;white-space:nowrap;">여의도역</td>
+                <td><input type="text" id="tc_yeouido_time" placeholder="예: 15분" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_yeouido_tr" placeholder="예: 없음" oninput="saveMemoDebounced()" /></td>
+                <td><input type="text" id="tc_yeouido_memo" placeholder="메모..." oninput="saveMemoDebounced()" /></td>
+              </tr>
+            </tbody>
+            <tbody id="traffic_custom_body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-sm" style="margin-bottom:20px;" onclick="addTrafficRow()">+ 목적지 추가</button>
+
+        <!-- 메모 -->
+        <div class="memo-grid">
+          <div class="memo-field">
+            <label>📝 교통 메모</label>
+            <textarea id="memo_traffic" placeholder="지하철, 버스, 고속도로 접근성 등..." oninput="saveMemoDebounced()"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div id="subsec-school" class="subsection-content">
+
+        <!-- 학군 등급 -->
+        <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">학군 등급</div>
+            <select id="school_grade_select" onchange="onSchoolGradeChange()" style="width:120px;">
+              <option value="">선택</option>
+              <option value="S">S</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+          <div id="school_grade_result" style="display:none;">
+            <div class="info-cell" style="background:var(--surface2);text-align:center;min-width:80px;">
+              <div class="info-cell-label">등급</div>
+              <div id="school_grade_badge" style="font-size:22px;font-weight:700;margin-top:4px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 아실 바로가기 -->
+        <div style="margin-bottom:20px;">
+          <a href="https://asil.kr/" target="_blank" class="btn btn-sm">
+            <svg style="width:13px;height:13px;vertical-align:middle;margin-right:5px;margin-top:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>아실 바로가기 →</a>
+        </div>
+
+        <!-- 사진 + 메모 -->
+        <div style="display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:0 0 auto;">
+            <div id="school_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+              onclick="schoolPhotoBoxClick(event)"
+              ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+              ondragleave="this.style.borderColor=''"
+              ondrop="handleSchoolPhotoDrop(event)">
+              <span id="school_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">+ 클릭 / 드래그 / Ctrl+V</span>
+              <img id="school_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openSchoolPhotoLightbox(event)" title="클릭하면 크게 보기" />
+            </div>
+            <input type="file" id="school_photo_input" accept="image/*" style="display:none;" onchange="handleSchoolPhoto(event)" />
+            <button id="school_photo_del" class="btn btn-sm" style="margin-top:6px;width:240px;display:none;" onclick="removeSchoolPhoto()">사진 삭제</button>
+          </div>
+
+          <!-- 라이트박스 -->
+          <div id="school_lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;align-items:center;justify-content:center;" onclick="closeSchoolPhotoLightbox()">
+            <img id="school_lightbox_img" style="max-width:90vw;max-height:90vh;border-radius:var(--radius);object-fit:contain;" />
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <div class="memo-field">
+              <label>📝 메모</label>
+              <textarea id="school_photo_memo" placeholder="학군 관련 메모..." oninput="saveMemoDebounced()" style="height:156px;"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 입시 데이터 표 -->
+        <div style="overflow-x:auto;">
+          <table class="sheet" style="min-width:auto;max-width:320px;">
+            <thead>
+              <tr>
+                <th style="width:120px;">구분</th>
+                <th>갯수</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">95% 이상</td>
+                <td><input type="text" id="school_95" placeholder="예: 3개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">90% 이상</td>
+                <td><input type="text" id="school_90" placeholder="예: 7개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">85% 이상</td>
+                <td><input type="text" id="school_85" placeholder="예: 12개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div id="subsec-environment" class="subsection-content">
+
+        <!-- 환경 등급 -->
+        <div style="display:flex;gap:16px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">환경 등급</div>
+            <select id="env_grade_select" onchange="onEnvGradeChange()" style="width:120px;">
+              <option value="">선택</option>
+              <option value="S">S</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+          <div id="env_grade_result" style="display:none;">
+            <div class="info-cell" style="background:var(--surface2);text-align:center;min-width:80px;">
+              <div class="info-cell-label">등급</div>
+              <div id="env_grade_badge" style="font-size:22px;font-weight:700;margin-top:4px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카카오맵 바로가기 -->
+        <div style="margin-bottom:20px;">
+          <a href="https://map.kakao.com/" target="_blank" class="btn btn-sm">
+            <svg style="width:13px;height:13px;vertical-align:middle;margin-right:5px;margin-top:-2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>카카오맵 바로가기 →</a>
+        </div>
+
+        <!-- 사진 + 메모 -->
+        <div style="display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="flex:0 0 auto;">
+            <div id="env_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+              onclick="envPhotoBoxClick(event)"
+              ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+              ondragleave="this.style.borderColor=''"
+              ondrop="handleEnvPhotoDrop(event)">
+              <span id="env_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">+ 클릭 / 드래그 / Ctrl+V</span>
+              <img id="env_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openEnvPhotoLightbox(event)" title="클릭하면 크게 보기" />
+            </div>
+            <input type="file" id="env_photo_input" accept="image/*" style="display:none;" onchange="handleEnvPhoto(event)" />
+            <button id="env_photo_del" class="btn btn-sm" style="margin-top:6px;width:240px;display:none;" onclick="removeEnvPhoto()">사진 삭제</button>
+          </div>
+
+          <!-- 라이트박스 -->
+          <div id="env_lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;align-items:center;justify-content:center;" onclick="closeEnvPhotoLightbox()">
+            <img id="env_lightbox_img" style="max-width:90vw;max-height:90vh;border-radius:var(--radius);object-fit:contain;" />
+          </div>
+
+          <div style="flex:1;min-width:160px;">
+            <div class="memo-field">
+              <label>📝 메모</label>
+              <textarea id="env_photo_memo" placeholder="환경 관련 메모..." oninput="saveMemoDebounced()" style="height:156px;"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 편의시설 표 -->
+        <div style="overflow-x:auto;">
+          <table class="sheet" style="min-width:auto;max-width:320px;">
+            <thead>
+              <tr>
+                <th style="width:120px;">구분</th>
+                <th>갯수</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">백화점</td>
+                <td><input type="text" id="env_dept" placeholder="예: 1개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">마트</td>
+                <td><input type="text" id="env_mart" placeholder="예: 3개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+              <tr>
+                <td style="color:var(--text);font-weight:500;">종합병원</td>
+                <td><input type="text" id="env_hospital" placeholder="예: 2개" oninput="saveMemoDebounced()" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 시세 그래프 -->
+  <div id="sec-graphs" class="section-content">
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>시세 그래프</span>
+        <button class="btn btn-sm" onclick="addGraphEntry()">+ 항목 추가</button>
+      </div>
+      <div id="graphList"></div>
+    </div>
+
+    <!-- 라이트박스 -->
+    <div id="graph_lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:999;align-items:center;justify-content:center;" onclick="closeGraphLightbox()">
+      <img id="graph_lightbox_img" style="max-width:90vw;max-height:90vh;border-radius:var(--radius);object-fit:contain;" />
+    </div>
+  </div>
+
+  <!-- 임장 보고서 -->
+  <div id="sec-photos" class="section-content">
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>임장 보고서</span>
+        <button class="btn btn-sm" onclick="addReportEntry()">+ 항목 추가</button>
+      </div>
+      <div id="reportList"></div>
+    </div>
+
+    <!-- 라이트박스 -->
+    <div id="report_lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:999;align-items:center;justify-content:center;" onclick="closeReportLightbox()">
+      <img id="report_lightbox_img" style="max-width:90vw;max-height:90vh;border-radius:var(--radius);object-fit:contain;" />
+    </div>
+  </div>
+
+  <!-- 결론 -->
+  <div id="sec-conclusion" class="section-content">
+
+    <!-- 작성 가이드 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="card-title" style="margin-bottom:0;">임장보고서 결론 쓰는 방법</div>
+        <button class="btn btn-sm" id="conclusion_guide_btn" onclick="toggleConclusionGuide()">가이드 보기 ▾</button>
+      </div>
+      <div id="conclusion_guide" style="display:none;margin-top:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <!-- 가치에 대한 정리 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border2);text-align:center;color:var(--text);">가치에 대한 정리</div>
+            <div style="border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.9;text-align:center;">
+              직장, 교통, 학군, 환경에<br>대한 가치 정리<br>
+              향후 3년 공급 내용 정리<br>
+              호재 여부 정리
+            </div>
+          </div>
+          <!-- 가격에 대한 정리 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border2);text-align:center;color:var(--text);">가격에 대한 정리</div>
+            <div style="border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.9;text-align:center;">
+              선호 생활권 20평대<br>신축/준신축/구축<br>가격대 정리<br>
+              <span style="color:var(--text3);font-size:11px;">(대략적인 가격대)</span><br><br>
+              선호 생활권 30평대<br>신축/준신축/구축<br>가격대 정리<br>
+              <span style="color:var(--text3);font-size:11px;">(대략적인 가격대)</span>
+            </div>
+          </div>
+          <!-- 투자물건 정리 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border2);text-align:center;color:var(--text);">투자물건 정리</div>
+            <div style="border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.9;text-align:center;">
+              지역 내 비교평가를 통해<br>
+              저환수원리에 맞고<br>
+              할 수 있는 투자 중<br>
+              가장 좋다고 생각한 물건<br>
+              Top 3를 매겨보기
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+          <!-- 생활권 우선순위 -->
+          <div>
+            <div style="font-size:12px;font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border2);text-align:center;color:var(--text);">생활권 우선순위</div>
+            <div style="border:1px solid var(--border2);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:12px;font-size:12px;color:var(--text2);line-height:1.9;text-align:center;">
+              마곡 &gt; 내발산 &gt; 가양 &gt; …
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;padding:12px;font-size:12px;color:var(--text3);line-height:1.7;">
+            ※ 가치 → 가격 → 투자물건 순으로 정리하고,<br>생활권 우선순위를 바탕으로 최종 투자 단지를 선정하세요.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 결론 메모 -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px;">결론 <span class="auto-save-tag">자동저장</span></div>
+      <div class="memo-field">
+        <label style="font-size:12px;letter-spacing:0;text-transform:none;">내가 생각한 생활권 입지 순서 및 단지 선호도</label>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.6;">지역 내 비교평가를 통해 투자 우선순위 단지를 선정하고, 범위를 넓혀서 지역간 비교평가를 통해서 최종 투자 단지를 선정하세요</div>
+        <textarea id="conclusion_memo" placeholder="생활권 입지 순서, 단지 선호도 등 자유롭게 작성하세요..." oninput="saveMemoDebounced()" style="min-height:400px;"></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentFolderId = null;
+let memoTimer = null;
+
+function openReport() {
+  if (!currentFolderId) return;
+  window.open(`report.html?id=${currentFolderId}`, '_blank');
+}
+let typeFilterState = {}; // { [aptId]: Set<area_string> }
+let filterSaveTimer = null;
+
+function init() {
+  renderFolderTabs();
+  const folders = getFolders();
+  if (folders.length) {
+    selectFolder(folders[0].id);
+  } else {
+    document.getElementById('noFolderMsg').style.display = 'flex';
+    document.getElementById('folderContent').style.display = 'none';
+  }
+}
+
+function renderFolderTabs() {
+  const tabs = document.getElementById('folderTabs');
+  const folders = getFolders();
+  tabs.innerHTML = folders.map(f => `
+    <div class="folder-tab ${f.id===currentFolderId?'active':''}"
+      draggable="true"
+      data-id="${f.id}"
+      onclick="selectFolder('${f.id}')"
+      ondragstart="onTabDragStart(event,'${f.id}')"
+      ondragover="onTabDragOver(event,'${f.id}')"
+      ondragleave="onTabDragLeave(event)"
+      ondrop="onTabDrop(event,'${f.id}')"
+      ondragend="onTabDragEnd(event)">
+      <span ondblclick="startRenameFolder(event,'${f.id}')" title="더블클릭으로 이름 변경">📁 ${f.name}</span>
+      <span class="tab-remove" onclick="removeFolderClick(event,'${f.id}')">✕</span>
+    </div>
+  `).join('') + `<button class="btn-new-folder" onclick="createNewFolder()">+ 새 폴더</button>`;
+}
+
+// ─── 탭 드래그 앤 드롭 ────────────────────────────────────────────
+let _dragId = null;
+
+function onTabDragStart(e, id) {
+  _dragId = id;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onTabDragOver(e, id) {
+  if (_dragId === null || _dragId === id) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onTabDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onTabDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragId || _dragId === targetId) return;
+  const folders = getFolders();
+  const ids = folders.map(f => f.id);
+  const fromIdx = ids.indexOf(_dragId);
+  const toIdx   = ids.indexOf(targetId);
+  if (fromIdx === -1 || toIdx === -1) return;
+  ids.splice(fromIdx, 1);
+  ids.splice(toIdx, 0, _dragId);
+  reorderFolders(ids);
+  renderFolderTabs();
+}
+
+function onTabDragEnd(e) {
+  _dragId = null;
+  document.querySelectorAll('.folder-tab').forEach(el => {
+    el.classList.remove('dragging', 'drag-over');
+  });
+}
+
+function startRenameFolder(e, id) {
+  e.stopPropagation();
+  const span = e.target;
+  const folder = getFolder(id);
+  if (!folder) return;
+
+  const input = document.createElement('input');
+  input.value = folder.name;
+  input.style.cssText = 'background:transparent;border:none;border-bottom:1px solid var(--accent);outline:none;font-size:13px;color:var(--text);font-family:inherit;width:100px;padding:0 2px;';
+
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function commit() {
+    const newName = input.value.trim();
+    if (newName && newName !== folder.name) renameFolder(id, newName);
+    renderFolderTabs();
+    if (id === currentFolderId) document.getElementById('folderTitle').textContent = newName || folder.name;
+  }
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = folder.name; input.blur(); }
+  });
+}
+
+function selectFolder(id) {
+  const switching = currentFolderId !== id;
+  currentFolderId = id;
+  const folder = getFolder(id);
+  if (!folder) return;
+
+  document.getElementById('noFolderMsg').style.display = 'none';
+  document.getElementById('folderContent').style.display = 'flex';
+  document.getElementById('folderTitle').textContent = folder.name;
+
+  if (switching) {
+    renderFolderTabs();
+    loadTypeFilters(folder);
+    renderSpreadsheet(folder);
+    applyAllSavedTypeFilters();
+    renderMemo(folder);
+    renderGraphs(folder);
+    renderPhotos(folder);
+  }
+}
+
+function createNewFolder() {
+  const name = prompt('폴더 이름을 입력하세요 (예: 강남구, 마포구)');
+  if (!name || !name.trim()) return;
+  const folder = createFolder(name.trim());
+  currentFolderId = folder.id;
+  renderFolderTabs();
+  selectFolder(folder.id);
+}
+
+function removeFolderClick(e, id) {
+  e.stopPropagation();
+  const folder = getFolder(id);
+  if (!confirm(`"${folder.name}" 폴더를 삭제할까요?\n저장된 아파트 데이터와 사진이 모두 삭제됩니다.`)) return;
+  deleteFolder(id);
+  currentFolderId = null;
+  const remaining = getFolders();
+  if (remaining.length) selectFolder(remaining[0].id);
+  else {
+    renderFolderTabs();
+    document.getElementById('noFolderMsg').style.display = 'flex';
+    document.getElementById('folderContent').style.display = 'none';
+  }
+}
+
+// ─── Spreadsheet ───────────────────────────────────────────────
+function renderSpreadsheet(folder) {
+  const apts = folder.apartments || [];
+  const body = document.getElementById('aptSheetBody');
+  const empty = document.getElementById('emptySheet');
+  document.getElementById('aptCountBadge').textContent = `(${apts.length}개)`;
+
+  if (!apts.length) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  body.innerHTML = apts.map(apt => {
+    const m = apt.manual || {};
+    const areaStats = apt.areaStats || (apt.areas || []).map(area => {
+      const ts = (apt.trades || []).filter(t => Math.round(t.area) === area);
+      const latest = ts.length ? [...ts].sort((a,b)=>b.date.localeCompare(a.date))[0] : null;
+      return { area, pyeong: Math.round(area/3.3), count: ts.length,
+        latestPrice: latest ? (latest.price/10000).toFixed(2) : '-',
+        latestDate: latest ? latest.date : '' };
+    });
+
+    const subRows = areaStats.map(s => {
+      const saved = (m.areas || {})[s.area] || {};
+      return `
+        <tr class="apt-sub-row" data-apt="${apt.id}" data-area="${s.area}">
+          <td style="padding-left:24px;line-height:1.6;">${s.area}㎡<br><span style="color:var(--text3);font-size:11px;">${s.pyeong}평</span></td>
+          <td><input type="text" value="${saved.supply||''}" placeholder="예: 110.5" onchange="updateManualArea('${apt.id}','${s.area}','supply',this.value)" /></td>
+          <td><input type="text" value="${saved.units||''}" placeholder="예: 300" onchange="updateManualArea('${apt.id}','${s.area}','units',this.value)" /></td>
+          <td class="price-cell">${s.latestPrice !== '-' ? s.latestPrice+'억' : '-'}${s.latestDate ? `<br><span style="color:var(--text3);">(${s.latestDate})</span>` : ''}</td>
+          <td class="price-cell" style="color:${s.isAtHigh ? '#4ade80' : ''};">
+            ${s.highPrice ? s.highPrice+'억' : '—'}
+            ${s.highPrice ? `<br><span style="color:${s.isAtHigh ? '#4ade80' : 'var(--text3)'};">${s.isAtHigh ? '▲ 고점' : '('+s.highDate+')'}</span>` : ''}
+          </td>
+          <td class="price-cell">${fmtHighPct(parsePrice(s.latestPrice), parsePrice(s.highPrice), s.isAtHigh)}</td>
+          <td><input type="text" value="${saved.rooms||''}" placeholder="3" onchange="updateManualArea('${apt.id}','${s.area}','rooms',this.value)" /></td>
+          <td><input type="text" value="${saved.bathrooms||''}" placeholder="2" onchange="updateManualArea('${apt.id}','${s.area}','bathrooms',this.value)" /></td>
+        </tr>`;
+    }).join('');
+
+    const customAreas = m.customAreas || [];
+    const customRows = customAreas.map(areaKey => {
+      const saved = (m.areas || {})[areaKey] || {};
+      const num = parseFloat(areaKey);
+      const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
+      return `
+        <tr class="apt-sub-row" data-apt="${apt.id}" data-area="${areaKey}">
+          <td style="padding-left:24px;line-height:1.6;">${areaKey}㎡${pyeong !== null ? `<br><span style="color:var(--text3);font-size:11px;">${pyeong}평</span>` : ''}<br><span style="color:var(--accent);font-size:10px;opacity:0.65;">수동추가</span></td>
+          <td><input type="text" value="${saved.supply||''}" placeholder="예: 110.5" onchange="updateManualArea('${apt.id}','${areaKey}','supply',this.value)" /></td>
+          <td><input type="text" value="${saved.units||''}" placeholder="예: 300" onchange="updateManualArea('${apt.id}','${areaKey}','units',this.value)" /></td>
+          <td><input type="text" value="${saved.manualLatestPrice||''}" placeholder="예: 9.5억" onchange="updateManualArea('${apt.id}','${areaKey}','manualLatestPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
+          <td><input type="text" value="${saved.manualHighPrice||''}" placeholder="예: 11.2억" onchange="updateManualArea('${apt.id}','${areaKey}','manualHighPrice',this.value)" style="font-family:'DM Mono',monospace;" /></td>
+          <td class="price-cell">${fmtHighPct(parsePrice(saved.manualLatestPrice), parsePrice(saved.manualHighPrice), false)}</td>
+          <td><input type="text" value="${saved.rooms||''}" placeholder="3" onchange="updateManualArea('${apt.id}','${areaKey}','rooms',this.value)" /></td>
+          <td><input type="text" value="${saved.bathrooms||''}" placeholder="2" onchange="updateManualArea('${apt.id}','${areaKey}','bathrooms',this.value)" /></td>
+          <td><button class="btn btn-sm btn-danger btn-icon" onclick="removeCustomArea('${apt.id}','${areaKey}')" title="타입 삭제">✕</button></td>
+        </tr>`;
+    }).join('');
+
+    const buildInfo = apt.buildYear
+      ? `${apt.buildYear}년 <span style="color:var(--text3);font-size:11px;">(${apt.buildingAge}년차)</span>`
+      : '<span style="color:var(--text3);">—</span>';
+
+    return `
+      <tr class="apt-divider"><td colspan="9"></td></tr>
+      <tr class="apt-main-row">
+        <td class="apt-name-cell">${apt.name}</td>
+        <td style="white-space:nowrap;color:var(--text3);font-weight:400;font-size:12px;">${apt.regionName||''}</td>
+        <td style="white-space:nowrap;">${buildInfo}</td>
+        <td><input type="text" value="${m.totalUnits||''}" placeholder="예: 500" onchange="updateManual('${apt.id}','totalUnits',this.value)" style="min-width:60px;" /></td>
+        <td>
+          <select onchange="updateManual('${apt.id}','corridorType',this.value)" style="min-width:80px;">
+            <option value="" ${!m.corridorType?'selected':''}>선택</option>
+            <option ${m.corridorType==='계단식'?'selected':''}>계단식</option>
+            <option ${m.corridorType==='복도식'?'selected':''}>복도식</option>
+            <option ${m.corridorType==='혼합'?'selected':''}>혼합</option>
+          </select>
+        </td>
+        <td style="color:var(--text3);font-size:12px;font-weight:400;">${(apt.trades||[]).length}건</td>
+        <td><input type="text" value="${m.notes||''}" placeholder="메모..." onchange="updateManual('${apt.id}','notes',this.value)" style="min-width:120px;" /></td>
+        <td><button class="btn btn-sm btn-danger btn-icon" onclick="removeApt('${apt.id}')" title="삭제">✕</button></td>
+        <td></td>
+      </tr>
+      <tr class="apt-sub-header">
+        <th style="padding-left:24px;">
+          └ 타입
+          <div class="type-filter-wrap">
+            <button class="type-filter-trigger" id="tfbtn-${apt.id}"
+              onclick="toggleFilterPanel('${apt.id}', event)">필터 ▾</button>
+            <div class="type-filter-panel" id="tfpanel-${apt.id}" onclick="event.stopPropagation()">
+              <div style="display:flex;gap:4px;padding:6px 10px 4px;border-bottom:1px solid var(--border);">
+                <button class="btn btn-sm" style="flex:1;font-size:10px;padding:3px 0;" onclick="selectAllTypes('${apt.id}', true)">전체 선택</button>
+                <button class="btn btn-sm" style="flex:1;font-size:10px;padding:3px 0;" onclick="selectAllTypes('${apt.id}', false)">전체 해제</button>
+              </div>
+              ${areaStats.map(s => `
+                <label class="type-filter-item">
+                  <input type="checkbox" checked
+                    data-apt="${apt.id}" data-area="${s.area}"
+                    onchange="applyAptTypeFilter('${apt.id}')">
+                  ${s.area}㎡ · ${s.pyeong}평
+                </label>
+              `).join('')}${customAreas.map(areaKey => {
+                const num = parseFloat(areaKey);
+                const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
+                return `
+                <label class="type-filter-item">
+                  <input type="checkbox" checked
+                    data-apt="${apt.id}" data-area="${areaKey}"
+                    onchange="applyAptTypeFilter('${apt.id}')">
+                  ${areaKey}㎡${pyeong !== null ? ' · ' + pyeong + '평' : ''} <span style="color:var(--text3);font-size:10px;">수동</span>
+                </label>`;
+              }).join('')}
+            </div>
+          </div>
+        </th>
+        <th style="width:52px;">공급면적</th>
+        <th style="width:52px;">세대수</th>
+        <th>최근 거래가</th>
+        <th>3년 최고가</th>
+        <th>고점대비</th>
+        <th style="width:52px;">방</th>
+        <th style="width:52px;">화장실</th>
+        <th></th>
+      </tr>
+      ${subRows}${customRows}
+      <tr>
+        <td colspan="9" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
+          <button class="btn btn-sm" onclick="addCustomAreaPrompt('${apt.id}')">＋ 타입 추가</button>
+          <span style="font-size:10px;color:var(--text3);margin-left:10px;">⚠️ 추가한 타입의 면적 값은 저장 후 수정 불가 — 변경 시 삭제 후 재추가</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function toggleFilterPanel(aptId, e) {
+  e.stopPropagation();
+  const panel = document.getElementById(`tfpanel-${aptId}`);
+  // 다른 패널 닫기
+  document.querySelectorAll('.type-filter-panel.open').forEach(p => {
+    if (p.id !== `tfpanel-${aptId}`) p.classList.remove('open');
+  });
+  panel.classList.toggle('open');
+}
+
+function applyAptTypeFilter(aptId) {
+  const checked = new Set(
+    [...document.querySelectorAll(`input[data-apt="${aptId}"]`)]
+      .filter(cb => cb.checked).map(cb => cb.dataset.area)
+  );
+  const total = document.querySelectorAll(`input[data-apt="${aptId}"]`).length;
+  document.querySelectorAll(`.apt-sub-row[data-apt="${aptId}"]`).forEach(row => {
+    row.style.display = checked.size === 0 || checked.has(row.dataset.area) ? '' : 'none';
+  });
+  const btn = document.getElementById(`tfbtn-${aptId}`);
+  if (btn) btn.classList.toggle('filtered', checked.size < total);
+
+  // 필터 상태 저장
+  typeFilterState[aptId] = checked;
+  clearTimeout(filterSaveTimer);
+  filterSaveTimer = setTimeout(saveTypeFilters, 300);
+}
+
+function saveTypeFilters() {
+  if (!currentFolderId) return;
+  const serialized = {};
+  Object.entries(typeFilterState).forEach(([aptId, areaSet]) => {
+    serialized[aptId] = [...areaSet];
+  });
+  saveMemo(currentFolderId, { typeFilters: JSON.stringify(serialized) });
+}
+
+function loadTypeFilters(folder) {
+  typeFilterState = {};
+  const raw = (folder.memo || {}).typeFilters;
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    Object.entries(parsed).forEach(([aptId, areas]) => {
+      typeFilterState[aptId] = new Set(areas);
+    });
+  } catch(e) {}
+}
+
+function applyAllSavedTypeFilters() {
+  Object.entries(typeFilterState).forEach(([aptId, checkedAreas]) => {
+    const checkboxes = document.querySelectorAll(`input[data-apt="${aptId}"]`);
+    if (!checkboxes.length) return;
+    const total = checkboxes.length;
+    checkboxes.forEach(cb => { cb.checked = checkedAreas.has(cb.dataset.area); });
+    document.querySelectorAll(`.apt-sub-row[data-apt="${aptId}"]`).forEach(row => {
+      row.style.display = checkedAreas.size === 0 || checkedAreas.has(row.dataset.area) ? '' : 'none';
+    });
+    const btn = document.getElementById(`tfbtn-${aptId}`);
+    if (btn) btn.classList.toggle('filtered', checkedAreas.size < total);
+  });
+}
+
+function selectAllTypes(aptId, select) {
+  document.querySelectorAll(`input[data-apt="${aptId}"]`).forEach(cb => { cb.checked = select; });
+  applyAptTypeFilter(aptId);
+}
+
+// 외부 클릭 시 드롭다운 닫기
+document.addEventListener('click', () => {
+  document.querySelectorAll('.type-filter-panel.open').forEach(p => p.classList.remove('open'));
+});
+
+function updateManual(aptId, field, value) {
+  if (!currentFolderId) return;
+  updateApartmentManual(currentFolderId, aptId, { [field]: value });
+}
+
+function updateManualArea(aptId, area, field, value) {
+  if (!currentFolderId) return;
+  updateApartmentManual(currentFolderId, aptId, { areas: { [area]: { [field]: value } } });
+}
+
+function removeApt(aptId) {
+  if (!confirm('이 아파트를 목록에서 삭제할까요?')) return;
+  deleteApartment(currentFolderId, aptId);
+  renderSpreadsheet(getFolder(currentFolderId));
+}
+
+function addCustomAreaPrompt(aptId) {
+  const val = prompt('추가할 타입의 면적을 입력하세요\n(숫자만, 예: 84 또는 59.9)\n\n⚠️ 저장 후 면적 값은 수정할 수 없습니다.');
+  if (!val || !val.trim()) return;
+  const key = val.trim();
+
+  const folder = getFolder(currentFolderId);
+  const apt = (folder.apartments || []).find(a => a.id === aptId);
+  if (!apt) return;
+
+  const m = apt.manual || {};
+  const areaStats = apt.areaStats || [];
+  const existingKeys = new Set([
+    ...areaStats.map(s => String(s.area)),
+    ...(m.customAreas || [])
+  ]);
+  if (existingKeys.has(key)) {
+    alert(`"${key}㎡" 타입은 이미 존재합니다.`);
+    return;
+  }
+
+  updateApartmentManual(currentFolderId, aptId, { customAreas: [...(m.customAreas || []), key] });
+  renderSpreadsheet(getFolder(currentFolderId));
+  applyAllSavedTypeFilters();
+}
+
+function parsePrice(val) {
+  if (!val) return null;
+  const n = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+  return isNaN(n) || n === 0 ? null : n;
+}
+
+function fmtHighPct(latest, high, isAtHigh) {
+  if (isAtHigh) return `<span style="color:var(--c2);font-size:11px;font-weight:600;">▲ 고점</span>`;
+  if (latest === null || high === null) return '<span style="color:var(--text3);">—</span>';
+  const pct = (latest - high) / high * 100;
+  const sign = pct >= 0 ? '+' : '';
+  const arrow = pct >= 0 ? '▲' : '▼';
+  const color = pct >= 0 ? 'var(--c2)' : 'var(--danger)';
+  return `<span style="color:${color};font-size:11px;font-weight:600;">${arrow} ${sign}${pct.toFixed(1)}%</span>`;
+}
+
+function removeCustomArea(aptId, areaKey) {
+  if (!confirm(`"${areaKey}㎡" 수동 타입을 삭제할까요?\n입력한 데이터도 함께 삭제됩니다.`)) return;
+  const folder = getFolder(currentFolderId);
+  const apt = (folder.apartments || []).find(a => a.id === aptId);
+  if (!apt) return;
+
+  const m = apt.manual || {};
+  updateApartmentManual(currentFolderId, aptId, {
+    customAreas: (m.customAreas || []).filter(k => k !== areaKey)
+  });
+  renderSpreadsheet(getFolder(currentFolderId));
+  applyAllSavedTypeFilters();
+}
+
+// ─── Memo ───────────────────────────────────────────────────────
+function renderMemo(folder) {
+  const m = folder.memo || {};
+  document.getElementById('memo_work').value = m.work || '';
+  document.getElementById('memo_traffic').value = m.traffic || '';
+  document.getElementById('conclusion_memo').value = m.conclusion || '';
+  renderLocSection(folder);
+  renderWorkSelect(folder);
+  renderTrafficSection(folder);
+  renderSchoolSection(folder);
+  renderEnvSection(folder);
+  renderSummary();
+}
+
+function saveMemoDebounced() {
+  clearTimeout(memoTimer);
+  memoTimer = setTimeout(() => {
+    if (!currentFolderId) return;
+    saveMemo(currentFolderId, {
+      loc_photo: locPhotoData,
+      loc_memo:  document.getElementById('loc_memo').value,
+      work: document.getElementById('memo_work').value,
+      work_region:   document.getElementById('work_region_select').value,
+      work_district: document.getElementById('work_district_select').value,
+      traffic_grade: document.getElementById('traffic_grade_select').value,
+      traffic_custom_rows: JSON.stringify(getTrafficCustomRows()),
+      tc_gangnam_time:  document.getElementById('tc_gangnam_time').value,
+      tc_gangnam_tr:    document.getElementById('tc_gangnam_tr').value,
+      tc_gangnam_memo:  document.getElementById('tc_gangnam_memo').value,
+      tc_sicho_time:    document.getElementById('tc_sicho_time').value,
+      tc_sicho_tr:      document.getElementById('tc_sicho_tr').value,
+      tc_sicho_memo:    document.getElementById('tc_sicho_memo').value,
+      tc_yeouido_time:  document.getElementById('tc_yeouido_time').value,
+      tc_yeouido_tr:    document.getElementById('tc_yeouido_tr').value,
+      tc_yeouido_memo:  document.getElementById('tc_yeouido_memo').value,
+      traffic: document.getElementById('memo_traffic').value,
+      school_grade:      document.getElementById('school_grade_select').value,
+      school_photo:      schoolPhotoData,
+      school_photo_memo: document.getElementById('school_photo_memo').value,
+      school_95:         document.getElementById('school_95').value,
+      school_90:         document.getElementById('school_90').value,
+      school_85:         document.getElementById('school_85').value,
+      env_grade:      document.getElementById('env_grade_select').value,
+      env_photo:      envPhotoData,
+      env_photo_memo: document.getElementById('env_photo_memo').value,
+      env_dept:       document.getElementById('env_dept').value,
+      env_mart:       document.getElementById('env_mart').value,
+      env_hospital:   document.getElementById('env_hospital').value,
+      conclusion:     document.getElementById('conclusion_memo').value
+    });
+  }, 600);
+}
+
+// ─── 임장 보고서 ──────────────────────────────────────────────────
+function renderPhotos(folder) {
+  const photos = folder.photos || [];
+  const list = document.getElementById('reportList');
+  if (!photos.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px;">+ 항목 추가 버튼으로 임장 보고서를 작성해보세요.</div>';
+    return;
+  }
+  list.innerHTML = photos.map((p, i) => `
+    <div class="report-entry" id="report-${p.id}">
+      <div class="report-entry-header">
+        <span style="font-size:12px;color:var(--text3);font-weight:500;">항목 ${i + 1}</span>
+        <button class="btn btn-sm btn-danger" onclick="removeReportEntry('${p.id}')">항목 삭제</button>
+      </div>
+      <div class="report-entry-body">
+        <div style="flex:0 0 auto;">
+          <div class="report-photo-box"
+            onclick="reportPhotoBoxClick(event,'${p.id}')"
+            ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+            ondragleave="this.style.borderColor=''"
+            ondrop="handleReportPhotoDrop(event,'${p.id}')">
+            ${p.data
+              ? `<img src="${p.data}" onclick="openReportLightbox(event,'${p.id}')" title="클릭하면 크게 보기" />`
+              : `<div class="report-photo-placeholder">+ 클릭 / 드래그<br>/ Ctrl+V</div>`
+            }
+          </div>
+          <input type="file" id="rpi-${p.id}" accept="image/*" style="display:none;" onchange="handleReportPhotoInput(event,'${p.id}')" />
+          ${p.data ? `<button class="btn btn-sm" style="margin-top:6px;width:240px;" onclick="removeReportPhoto(event,'${p.id}')">사진 삭제</button>` : ''}
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="memo-field">
+            <label>📝 임장 메모</label>
+            <textarea class="report-textarea" placeholder="임장 내용을 자유롭게 기록하세요..." oninput="updateReport('${p.id}',this.value)">${p.report || ''}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addReportEntry() {
+  if (!currentFolderId) return;
+  addPhoto(currentFolderId, { name: '', data: '', caption: '', report: '' });
+  renderPhotos(getFolder(currentFolderId));
+}
+
+function reportPhotoBoxClick(e, id) {
+  setPasteTarget(f => loadReportPhoto(f, id));
+  const folder = getFolder(currentFolderId);
+  const photo  = (folder.photos || []).find(p => p.id === id);
+  if (photo && photo.data) return; // 사진 있으면 img onclick이 처리
+  document.getElementById(`rpi-${id}`).click();
+}
+
+function handleReportPhotoInput(e, id) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadReportPhoto(file, id);
+  e.target.value = '';
+}
+
+function handleReportPhotoDrop(e, id) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = '';
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) loadReportPhoto(file, id);
+}
+
+function loadReportPhoto(file, id) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    updatePhotoData(currentFolderId, id, ev.target.result);
+    renderPhotos(getFolder(currentFolderId));
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeReportPhoto(e, id) {
+  e.stopPropagation();
+  updatePhotoData(currentFolderId, id, '');
+  renderPhotos(getFolder(currentFolderId));
+}
+
+function updateReport(photoId, report) {
+  updatePhotoReport(currentFolderId, photoId, report);
+}
+
+function removeReportEntry(photoId) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  deletePhoto(currentFolderId, photoId);
+  renderPhotos(getFolder(currentFolderId));
+}
+
+function openReportLightbox(e, id) {
+  e.stopPropagation();
+  const folder = getFolder(currentFolderId);
+  const photo  = (folder.photos || []).find(p => p.id === id);
+  if (!photo || !photo.data) return;
+  document.getElementById('report_lightbox_img').src = photo.data;
+  document.getElementById('report_lightbox').style.display = 'flex';
+}
+
+function closeReportLightbox() {
+  document.getElementById('report_lightbox').style.display = 'none';
+}
+
+
+// ─── 시세 그래프 ──────────────────────────────────────────────────
+function renderGraphs(folder) {
+  const graphs = folder.graphs || [];
+  const list = document.getElementById('graphList');
+  if (!graphs.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px;">+ 항목 추가 버튼으로 시세 그래프를 기록해보세요.</div>';
+    return;
+  }
+  list.innerHTML = graphs.map((g, i) => `
+    <div class="report-entry" id="graph-${g.id}">
+      <div class="report-entry-header">
+        <span style="font-size:12px;color:var(--text3);font-weight:500;">항목 ${i + 1}</span>
+        <button class="btn btn-sm btn-danger" onclick="removeGraphEntry('${g.id}')">항목 삭제</button>
+      </div>
+      <div class="report-entry-body">
+        <div style="flex:0 0 auto;">
+          <div class="report-photo-box"
+            onclick="graphPhotoBoxClick(event,'${g.id}')"
+            ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+            ondragleave="this.style.borderColor=''"
+            ondrop="handleGraphPhotoDrop(event,'${g.id}')">
+            ${g.data
+              ? `<img src="${g.data}" onclick="openGraphLightbox(event,'${g.id}')" title="클릭하면 크게 보기" />`
+              : `<div class="report-photo-placeholder">+ 클릭 / 드래그<br>/ Ctrl+V</div>`
+            }
+          </div>
+          <input type="file" id="gpi-${g.id}" accept="image/*" style="display:none;" onchange="handleGraphPhotoInput(event,'${g.id}')" />
+          ${g.data ? `<button class="btn btn-sm" style="margin-top:6px;width:240px;" onclick="removeGraphPhoto(event,'${g.id}')">사진 삭제</button>` : ''}
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="memo-field">
+            <label>📝 메모</label>
+            <textarea class="report-textarea" placeholder="시세 그래프에 대한 내용을 자유롭게 기록하세요..." oninput="updateGraphEntry('${g.id}',this.value)">${g.report || ''}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addGraphEntry() {
+  if (!currentFolderId) return;
+  addGraph(currentFolderId, { data: '', report: '' });
+  renderGraphs(getFolder(currentFolderId));
+}
+
+function graphPhotoBoxClick(e, id) {
+  setPasteTarget(f => loadGraphPhoto(f, id));
+  const folder = getFolder(currentFolderId);
+  const graph = (folder.graphs || []).find(g => g.id === id);
+  if (graph && graph.data) return;
+  document.getElementById(`gpi-${id}`).click();
+}
+
+function handleGraphPhotoInput(e, id) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadGraphPhoto(file, id);
+  e.target.value = '';
+}
+
+function handleGraphPhotoDrop(e, id) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = '';
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) loadGraphPhoto(file, id);
+}
+
+function loadGraphPhoto(file, id) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    updateGraphData(currentFolderId, id, ev.target.result);
+    renderGraphs(getFolder(currentFolderId));
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeGraphPhoto(e, id) {
+  e.stopPropagation();
+  updateGraphData(currentFolderId, id, '');
+  renderGraphs(getFolder(currentFolderId));
+}
+
+function updateGraphEntry(graphId, report) {
+  updateGraphReport(currentFolderId, graphId, report);
+}
+
+function removeGraphEntry(graphId) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  deleteGraph(currentFolderId, graphId);
+  renderGraphs(getFolder(currentFolderId));
+}
+
+function openGraphLightbox(e, id) {
+  e.stopPropagation();
+  const folder = getFolder(currentFolderId);
+  const graph = (folder.graphs || []).find(g => g.id === id);
+  if (!graph || !graph.data) return;
+  document.getElementById('graph_lightbox_img').src = graph.data;
+  document.getElementById('graph_lightbox').style.display = 'flex';
+}
+
+function closeGraphLightbox() {
+  document.getElementById('graph_lightbox').style.display = 'none';
+}
+
+// ─── 직장 탭 ─────────────────────────────────────────────────────
+function initWorkRegionSelect() {
+  const sel = document.getElementById('work_region_select');
+  Object.keys(WORK_DATA).forEach(region => {
+    const o = document.createElement('option');
+    o.value = region; o.textContent = region;
+    sel.appendChild(o);
+  });
+}
+
+function onWorkRegionChange() {
+  const region = document.getElementById('work_region_select').value;
+  const distSel = document.getElementById('work_district_select');
+  distSel.innerHTML = '<option value="">시/군/구 선택</option>';
+  document.getElementById('work_result').style.display = 'none';
+
+  if (!region) { distSel.disabled = true; return; }
+  distSel.disabled = false;
+  (WORK_DATA[region] || []).forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.district; o.textContent = d.district;
+    distSel.appendChild(o);
+  });
+  saveMemoDebounced();
+}
+
+function onWorkDistrictChange() {
+  const region   = document.getElementById('work_region_select').value;
+  const district = document.getElementById('work_district_select').value;
+  if (!region || !district) { document.getElementById('work_result').style.display = 'none'; return; }
+
+  const data = (WORK_DATA[region] || []).find(d => d.district === district);
+  if (!data) return;
+
+  document.getElementById('work_grade_badge').textContent = data.grade;
+  document.getElementById('work_grade_badge').style.color = GRADE_COLORS[data.grade] || '';
+  document.getElementById('work_workers').textContent    = data.workers.toLocaleString() + '명';
+  document.getElementById('work_businesses').textContent = data.businesses.toLocaleString() + '개';
+  document.getElementById('work_result').style.display = 'block';
+  saveMemoDebounced();
+  renderSummary();
+}
+
+function renderWorkSelect(folder) {
+  const m = folder.memo || {};
+  const regionSel   = document.getElementById('work_region_select');
+  const districtSel = document.getElementById('work_district_select');
+
+  if (m.work_region) {
+    regionSel.value = m.work_region;
+    onWorkRegionChange();
+    if (m.work_district) {
+      districtSel.value = m.work_district;
+      onWorkDistrictChange();
+    }
+  }
+}
+
+// ─── 교통 탭 ─────────────────────────────────────────────────────
+const GRADE_COLORS = { S: '#4ade80', A: '#f0c040', B: '#f5a623', C: 'var(--text3)' };
+
+function onTrafficGradeChange() {
+  const grade = document.getElementById('traffic_grade_select').value;
+  const result = document.getElementById('traffic_grade_result');
+  if (!grade) { result.style.display = 'none'; saveMemoDebounced(); renderSummary(); return; }
+  document.getElementById('traffic_grade_badge').textContent = grade;
+  document.getElementById('traffic_grade_badge').style.color = GRADE_COLORS[grade] || '';
+  result.style.display = 'block';
+  saveMemoDebounced();
+  renderSummary();
+}
+
+function renderTrafficSection(folder) {
+  const m = folder.memo || {};
+  const gradeSel = document.getElementById('traffic_grade_select');
+  gradeSel.value = m.traffic_grade || '';
+  onTrafficGradeChange();
+  ['gangnam','sicho','yeouido'].forEach(dest => {
+    document.getElementById(`tc_${dest}_time`).value  = m[`tc_${dest}_time`]  || '';
+    document.getElementById(`tc_${dest}_tr`).value    = m[`tc_${dest}_tr`]    || '';
+    document.getElementById(`tc_${dest}_memo`).value  = m[`tc_${dest}_memo`]  || '';
+  });
+  // 커스텀 행 복원
+  const tbody = document.getElementById('traffic_custom_body');
+  tbody.innerHTML = '';
+  const rows = JSON.parse(m.traffic_custom_rows || '[]');
+  rows.forEach(r => addTrafficRow(r.dest, r.time, r.tr, r.memo));
+}
+
+function addTrafficRow(dest='', time='', tr='', memo='') {
+  const tbody = document.getElementById('traffic_custom_body');
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input type="text" class="tc-dest" value="${dest}" placeholder="목적지 입력" oninput="saveMemoDebounced()" style="min-width:70px;" /></td>
+    <td><input type="text" class="tc-time" value="${time}" placeholder="예: 20분" oninput="saveMemoDebounced()" /></td>
+    <td><input type="text" class="tc-tr"   value="${tr}"   placeholder="예: 1회"  oninput="saveMemoDebounced()" /></td>
+    <td style="display:flex;align-items:center;gap:6px;">
+      <input type="text" class="tc-memo" value="${memo}" placeholder="메모..." oninput="saveMemoDebounced()" style="flex:1;" />
+      <span style="cursor:pointer;color:var(--text3);font-size:11px;flex-shrink:0;" onclick="removeTrafficRow(this)">✕</span>
+    </td>`;
+  tbody.appendChild(row);
+}
+
+function removeTrafficRow(btn) {
+  btn.closest('tr').remove();
+  saveMemoDebounced();
+}
+
+function getTrafficCustomRows() {
+  return [...document.querySelectorAll('#traffic_custom_body tr')].map(tr => ({
+    dest: tr.querySelector('.tc-dest').value,
+    time: tr.querySelector('.tc-time').value,
+    tr:   tr.querySelector('.tc-tr').value,
+    memo: tr.querySelector('.tc-memo').value,
+  }));
+}
+
+// ─── 학군 탭 ─────────────────────────────────────────────────────
+let schoolPhotoData = '';
+
+function onSchoolGradeChange() {
+  const grade = document.getElementById('school_grade_select').value;
+  const result = document.getElementById('school_grade_result');
+  if (!grade) { result.style.display = 'none'; saveMemoDebounced(); renderSummary(); return; }
+  document.getElementById('school_grade_badge').textContent = grade;
+  document.getElementById('school_grade_badge').style.color = GRADE_COLORS[grade] || '';
+  result.style.display = 'block';
+  saveMemoDebounced();
+  renderSummary();
+}
+
+function schoolPhotoBoxClick(e) {
+  setPasteTarget(f => loadSchoolPhotoFile(f));
+  if (schoolPhotoData) return; // 사진 있으면 클릭 무시 (img의 onclick이 처리)
+  document.getElementById('school_photo_input').click();
+}
+
+function handleSchoolPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadSchoolPhotoFile(file);
+  e.target.value = '';
+}
+
+function handleSchoolPhotoDrop(e) {
+  e.preventDefault();
+  document.getElementById('school_photo_box').style.borderColor = '';
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) loadSchoolPhotoFile(file);
+}
+
+function loadSchoolPhotoFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    schoolPhotoData = ev.target.result;
+    const img = document.getElementById('school_photo_img');
+    img.src = schoolPhotoData;
+    img.style.display = 'block';
+    document.getElementById('school_photo_placeholder').style.display = 'none';
+    document.getElementById('school_photo_del').style.display = 'block';
+    saveMemoDebounced();
+  };
+  reader.readAsDataURL(file);
+}
+
+function openSchoolPhotoLightbox(e) {
+  e.stopPropagation();
+  const lb = document.getElementById('school_lightbox');
+  document.getElementById('school_lightbox_img').src = schoolPhotoData;
+  lb.style.display = 'flex';
+}
+
+function closeSchoolPhotoLightbox() {
+  document.getElementById('school_lightbox').style.display = 'none';
+}
+
+function removeSchoolPhoto() {
+  schoolPhotoData = '';
+  document.getElementById('school_photo_img').src = '';
+  document.getElementById('school_photo_img').style.display = 'none';
+  document.getElementById('school_photo_placeholder').style.display = '';
+  document.getElementById('school_photo_del').style.display = 'none';
+  saveMemoDebounced();
+}
+
+function renderSchoolSection(folder) {
+  const m = folder.memo || {};
+  document.getElementById('school_grade_select').value = m.school_grade || '';
+  onSchoolGradeChange();
+
+  schoolPhotoData = m.school_photo || '';
+  const img = document.getElementById('school_photo_img');
+  if (schoolPhotoData) {
+    img.src = schoolPhotoData;
+    img.style.display = 'block';
+    document.getElementById('school_photo_placeholder').style.display = 'none';
+    document.getElementById('school_photo_del').style.display = 'block';
+  } else {
+    img.src = ''; img.style.display = 'none';
+    document.getElementById('school_photo_placeholder').style.display = '';
+    document.getElementById('school_photo_del').style.display = 'none';
+  }
+
+  document.getElementById('school_photo_memo').value = m.school_photo_memo || '';
+  document.getElementById('school_95').value = m.school_95 || '';
+  document.getElementById('school_90').value = m.school_90 || '';
+  document.getElementById('school_85').value = m.school_85 || '';
+}
+
+// ─── 환경 탭 ─────────────────────────────────────────────────────
+let envPhotoData = '';
+
+function onEnvGradeChange() {
+  const grade = document.getElementById('env_grade_select').value;
+  const result = document.getElementById('env_grade_result');
+  if (!grade) { result.style.display = 'none'; saveMemoDebounced(); renderSummary(); return; }
+  document.getElementById('env_grade_badge').textContent = grade;
+  document.getElementById('env_grade_badge').style.color = GRADE_COLORS[grade] || '';
+  result.style.display = 'block';
+  saveMemoDebounced();
+  renderSummary();
+}
+
+function envPhotoBoxClick(e) {
+  setPasteTarget(f => loadEnvPhotoFile(f));
+  if (envPhotoData) return;
+  document.getElementById('env_photo_input').click();
+}
+
+function handleEnvPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadEnvPhotoFile(file);
+  e.target.value = '';
+}
+
+function handleEnvPhotoDrop(e) {
+  e.preventDefault();
+  document.getElementById('env_photo_box').style.borderColor = '';
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) loadEnvPhotoFile(file);
+}
+
+function loadEnvPhotoFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    envPhotoData = ev.target.result;
+    const img = document.getElementById('env_photo_img');
+    img.src = envPhotoData;
+    img.style.display = 'block';
+    document.getElementById('env_photo_placeholder').style.display = 'none';
+    document.getElementById('env_photo_del').style.display = 'block';
+    saveMemoDebounced();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeEnvPhoto() {
+  envPhotoData = '';
+  const img = document.getElementById('env_photo_img');
+  img.src = ''; img.style.display = 'none';
+  document.getElementById('env_photo_placeholder').style.display = '';
+  document.getElementById('env_photo_del').style.display = 'none';
+  saveMemoDebounced();
+}
+
+function openEnvPhotoLightbox(e) {
+  e.stopPropagation();
+  document.getElementById('env_lightbox_img').src = envPhotoData;
+  document.getElementById('env_lightbox').style.display = 'flex';
+}
+
+function closeEnvPhotoLightbox() {
+  document.getElementById('env_lightbox').style.display = 'none';
+}
+
+function renderEnvSection(folder) {
+  const m = folder.memo || {};
+  document.getElementById('env_grade_select').value = m.env_grade || '';
+  onEnvGradeChange();
+
+  envPhotoData = m.env_photo || '';
+  const img = document.getElementById('env_photo_img');
+  if (envPhotoData) {
+    img.src = envPhotoData; img.style.display = 'block';
+    document.getElementById('env_photo_placeholder').style.display = 'none';
+    document.getElementById('env_photo_del').style.display = 'block';
+  } else {
+    img.src = ''; img.style.display = 'none';
+    document.getElementById('env_photo_placeholder').style.display = '';
+    document.getElementById('env_photo_del').style.display = 'none';
+  }
+
+  document.getElementById('env_photo_memo').value = m.env_photo_memo || '';
+  document.getElementById('env_dept').value     = m.env_dept     || '';
+  document.getElementById('env_mart').value     = m.env_mart     || '';
+  document.getElementById('env_hospital').value = m.env_hospital || '';
+}
+
+// ─── 클립보드 붙여넣기 (Ctrl+V) ──────────────────────────────────
+let activePhotoHandler = null;
+
+function setPasteTarget(handler) {
+  activePhotoHandler = handler;
+}
+
+document.addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const imageItem = [...items].find(item => item.type.startsWith('image/'));
+  if (!imageItem) return;
+  e.preventDefault();
+  if (!activePhotoHandler) {
+    showPasteToast('📌 붙여넣을 사진 칸을 먼저 클릭해주세요.');
+    return;
+  }
+  const file = imageItem.getAsFile();
+  if (file) { activePhotoHandler(file); showPasteToast('붙여넣기 완료!'); }
+});
+
+function showPasteToast(msg) {
+  let toast = document.getElementById('paste_toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'paste_toast';
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);color:var(--text2);font-size:12px;padding:8px 18px;border-radius:999px;z-index:9999;pointer-events:none;transition:opacity 0.4s;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, 2200);
+}
+
+// ─── 위치 & 생활권역 ──────────────────────────────────────────────
+let locPhotoData = '';
+
+function locPhotoBoxClick(e) {
+  setPasteTarget(f => loadLocPhotoFile(f));
+  if (locPhotoData) return;
+  document.getElementById('loc_photo_input').click();
+}
+
+function handleLocPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadLocPhotoFile(file);
+  e.target.value = '';
+}
+
+function handleLocPhotoDrop(e) {
+  e.preventDefault();
+  document.getElementById('loc_photo_box').style.borderColor = '';
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) loadLocPhotoFile(file);
+}
+
+function loadLocPhotoFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    locPhotoData = ev.target.result;
+    const img = document.getElementById('loc_photo_img');
+    img.src = locPhotoData;
+    img.style.display = 'block';
+    document.getElementById('loc_photo_placeholder').style.display = 'none';
+    document.getElementById('loc_photo_del').style.display = 'block';
+    saveMemoDebounced();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLocPhoto() {
+  locPhotoData = '';
+  const img = document.getElementById('loc_photo_img');
+  img.src = ''; img.style.display = 'none';
+  document.getElementById('loc_photo_placeholder').style.display = '';
+  document.getElementById('loc_photo_del').style.display = 'none';
+  saveMemoDebounced();
+}
+
+function openLocLightbox(e) {
+  e.stopPropagation();
+  document.getElementById('loc_lightbox_img').src = locPhotoData;
+  document.getElementById('loc_lightbox').style.display = 'flex';
+}
+
+function closeLocLightbox() {
+  document.getElementById('loc_lightbox').style.display = 'none';
+}
+
+function renderLocSection(folder) {
+  const m = folder.memo || {};
+  locPhotoData = m.loc_photo || '';
+  const img = document.getElementById('loc_photo_img');
+  if (locPhotoData) {
+    img.src = locPhotoData; img.style.display = 'block';
+    document.getElementById('loc_photo_placeholder').style.display = 'none';
+    document.getElementById('loc_photo_del').style.display = 'block';
+  } else {
+    img.src = ''; img.style.display = 'none';
+    document.getElementById('loc_photo_placeholder').style.display = '';
+    document.getElementById('loc_photo_del').style.display = 'none';
+  }
+  document.getElementById('loc_memo').value = m.loc_memo || '';
+}
+
+// ─── 기준표 토글 ──────────────────────────────────────────────────
+function toggleCriteria() {
+  const panel = document.getElementById('criteria_panel');
+  const btn   = document.getElementById('criteria_toggle_btn');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '기준표 보기 ▾' : '기준표 닫기 ▴';
+}
+
+// ─── 정리 탭 ─────────────────────────────────────────────────────
+function renderSummary() {
+  const sources = [
+    { cellId: 'sum_work',    grade: document.getElementById('work_grade_badge')?.textContent?.trim() || '' },
+    { cellId: 'sum_traffic', grade: document.getElementById('traffic_grade_select')?.value || '' },
+    { cellId: 'sum_school',  grade: document.getElementById('school_grade_select')?.value  || '' },
+    { cellId: 'sum_env',     grade: document.getElementById('env_grade_select')?.value     || '' },
+  ];
+  sources.forEach(({ cellId, grade }) => {
+    const td = document.getElementById(cellId);
+    if (!td) return;
+    td.textContent = grade || '-';
+    td.style.color = grade ? (GRADE_COLORS[grade] || '') : 'var(--text3)';
+  });
+}
+
+// ─── 결론 가이드 토글 ─────────────────────────────────────────────
+function toggleConclusionGuide() {
+  const guide = document.getElementById('conclusion_guide');
+  const btn   = document.getElementById('conclusion_guide_btn');
+  const open  = guide.style.display === 'none';
+  guide.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '가이드 닫기 ▴' : '가이드 보기 ▾';
+}
+
+// ─── Section nav ─────────────────────────────────────────────────
+function switchSection(name, btn) {
+  document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sec-' + name).classList.add('active');
+}
+
+function switchSubSection(name, btn) {
+  document.querySelectorAll('.subsection-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.subsection-content').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('subsec-' + name).classList.add('active');
+}
+
+// ─── Import / Export ─────────────────────────────────────────────
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  importJSON(file,
+    (db) => {
+      alert(`가져오기 완료! 폴더 ${db.folders.length}개가 로드됐습니다.`);
+      init();
+    },
+    (err) => alert('가져오기 실패: ' + err)
+  );
+  e.target.value = '';
+}
+
+initWorkRegionSelect();
+init();
+</script>
+</body>
+</html>
