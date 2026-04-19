@@ -453,7 +453,7 @@ async function loadApartment(exactName) {
     name: exactName,
     lawdCd,
     regionName: getRegionName(lawdCd),
-    color: COLORS[apartments.length],
+    color: COLORS.find(c => !apartments.some(a => a.color === c)) ?? COLORS[apartments.length % COLORS.length],
     trades: recentTrades, // 차트/표는 최근 12개월
     allTrades: trades,    // 역대 최고가 계산용
     areas, areaStats,
