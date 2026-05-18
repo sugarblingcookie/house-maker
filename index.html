@@ -493,36 +493,33 @@ function saveToFolder() {
     msgEl.style.color = 'var(--danger)';
     return;
   }
-  const areaInputs = {};
+  const folder = getFolders().find(f => f.id === folderId);
+  const existing = folder ? (folder.apartments || []).find(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd) : null;
+  const isUpdate = !!existing;
+  const existingManual = existing?.manual || {};
+
+  // 기존 area 데이터를 베이스로, 입력된 값만 덮어쓰기 (빈 값이면 기존 값 유지)
+  const mergedAreas = JSON.parse(JSON.stringify(existingManual.areas || {}));
   document.querySelectorAll('#manualAreaTable input[data-area]').forEach(el => {
     const area = el.dataset.area;
     const field = el.dataset.field;
-    if (!areaInputs[area]) areaInputs[area] = {};
-    areaInputs[area][field] = el.value;
+    if (!mergedAreas[area]) mergedAreas[area] = {};
+    if (el.value !== '') mergedAreas[area][field] = el.value;
   });
+
   const aptData = {
     ...activeApt,
     manual: {
-      corridorType: document.getElementById('m_corridor').value,
-      areas: areaInputs,
-      notes: ''
+      ...existingManual,
+      corridorType: document.getElementById('m_corridor').value || existingManual.corridorType || '',
+      areas: mergedAreas
     }
   };
-  const isUpdate = !!getFolders()
-    .find(f => f.id === folderId)
-    ?.apartments?.find?.(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd);
-
-  // 기존 notes 유지
-  const folder = getFolders().find(f => f.id === folderId);
-  if (folder) {
-    const existing = (folder.apartments || []).find(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd);
-    if (existing) aptData.manual.notes = existing.manual?.notes || '';
-  }
 
   saveApartment(folderId, aptData);
 
   msgEl.style.color = 'var(--accent)';
-  msgEl.textContent = isUpdate ? '업데이트 완료!' : '저장 완료!';
+  msgEl.textContent = isUpdate ? '시세 업데이트 완료!' : '저장 완료!';
   clearTimeout(msgEl._t);
   msgEl._t = setTimeout(() => { msgEl.textContent = ''; }, 2500);
 }
