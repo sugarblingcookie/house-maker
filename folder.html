@@ -1111,7 +1111,6 @@ function renderSpreadsheet(folder) {
     <th>전체 세대수</th>
     <th>복도 형식</th>
     <th>거래건수 (12개월)</th>
-    <th>메모</th>
     <th style="width:70px;">세대당 주차</th>
     <th style="width:70px;">용적률</th>
     <th style="width:110px;">역 거리</th>
@@ -1123,7 +1122,7 @@ function renderSpreadsheet(folder) {
   groups.forEach(group => {
     html += `
       <tr class="group-header-row" data-group-id="${group.id}">
-        <td colspan="13">
+        <td colspan="12">
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:13px;">📍</span>
             <span ondblclick="startRenameGroup(event,'${group.id}')" title="더블클릭으로 이름 수정" style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);">${group.name}</span>
@@ -1140,7 +1139,7 @@ function renderSpreadsheet(folder) {
     if (groups.length > 0) {
       html += `
         <tr class="group-unassigned-row">
-          <td colspan="13" style="font-size:12px;color:var(--text3);">미배정</td>
+          <td colspan="12" style="font-size:12px;color:var(--text3);">미배정</td>
         </tr>`;
     }
     html += colHeaderRow;
@@ -1213,7 +1212,7 @@ function renderAptBlock(apt, groups) {
     </select>`;
 
   return `
-    <tr class="apt-divider"><td colspan="13"></td></tr>
+    <tr class="apt-divider"><td colspan="12"></td></tr>
     <tr class="apt-main-row" data-apt-id="${apt.id}" draggable="false">
       <td class="apt-drag-handle" title="드래그하여 순서 변경">⠿</td>
       <td class="apt-name-cell">${apt.name}</td>
@@ -1229,7 +1228,6 @@ function renderAptBlock(apt, groups) {
         </select>
       </td>
       <td style="color:var(--text3);font-size:12px;font-weight:400;">${(apt.trades||[]).length}건</td>
-      <td><input type="text" value="${m.notes||''}" placeholder="메모..." onchange="updateManual('${apt.id}','notes',this.value)" style="min-width:120px;" /></td>
       <td><input type="text" value="${m.parking||''}" placeholder="예: 1.2대" onchange="updateManual('${apt.id}','parking',this.value)" style="min-width:60px;" /></td>
       <td><input type="text" value="${m.farRatio||''}" placeholder="예: 250%" onchange="updateManual('${apt.id}','farRatio',this.value)" style="min-width:60px;" /></td>
       <td><input type="text" value="${m.stationDist||''}" placeholder="예: 이문역 350m" onchange="updateManual('${apt.id}','stationDist',this.value)" style="min-width:90px;" /></td>
@@ -1275,11 +1273,18 @@ function renderAptBlock(apt, groups) {
       <th></th>
       <th></th>
       <th></th>
-      <th></th>
     </tr>
     ${subRows}${customRows}
+    <tr class="apt-notes-row">
+      <td colspan="12" style="padding:4px 14px 8px 24px;background:transparent;border-bottom:none;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap;">📝 메모</span>
+          <input type="text" value="${m.notes||''}" placeholder="메모..." onchange="updateManual('${apt.id}','notes',this.value)" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px dashed var(--border2);padding:2px 0;font-size:12px;color:var(--text);" />
+        </div>
+      </td>
+    </tr>
     <tr>
-      <td colspan="13" style="padding:8px 14px 12px 24px;background:transparent;border-bottom:none;">
+      <td colspan="12" style="padding:4px 14px 12px 24px;background:transparent;border-bottom:none;">
         <button class="btn btn-sm" onclick="addCustomAreaPrompt('${apt.id}')">＋ 타입 추가</button>
         <span style="font-size:10px;color:var(--text3);margin-left:10px;">⚠️ 추가한 타입의 면적 값은 저장 후 수정 불가 — 변경 시 삭제 후 재추가</span>
       </td>
