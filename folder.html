@@ -46,8 +46,9 @@
   width: 100%; border-collapse: collapse;
   font-size: 13px; min-width: 900px;
 }
-/* 메인 헤더 (thead th) */
-.sheet thead th {
+/* 메인 헤더 */
+.sheet thead th,
+.sheet tr.col-header th {
   text-align: left; font-size: 11px; font-weight: 600;
   color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase;
   padding: 11px 14px; white-space: nowrap;
@@ -386,23 +387,6 @@
       </div>
       <div class="sheet-wrap">
         <table class="sheet" id="aptSheet">
-          <thead>
-            <tr>
-              <th style="width:28px;"></th>
-              <th>아파트명</th>
-              <th>지역</th>
-              <th>건축연도</th>
-              <th>전체 세대수</th>
-              <th>복도 형식</th>
-              <th>거래건수 (12개월)</th>
-              <th>메모</th>
-              <th style="width:70px;">세대당 주차</th>
-              <th style="width:70px;">용적률</th>
-              <th style="width:110px;">역 거리</th>
-              <th>생활권</th>
-              <th></th>
-            </tr>
-          </thead>
           <tbody id="aptSheetBody"></tbody>
         </table>
       </div>
@@ -1119,6 +1103,22 @@ function renderSpreadsheet(folder) {
 
   let html = '';
 
+  const colHeaderRow = `<tr class="col-header">
+    <th style="width:28px;"></th>
+    <th>아파트명</th>
+    <th>지역</th>
+    <th>건축연도</th>
+    <th>전체 세대수</th>
+    <th>복도 형식</th>
+    <th>거래건수 (12개월)</th>
+    <th>메모</th>
+    <th style="width:70px;">세대당 주차</th>
+    <th style="width:70px;">용적률</th>
+    <th style="width:110px;">역 거리</th>
+    <th>생활권</th>
+    <th></th>
+  </tr>`;
+
   // 이름 있는 그룹 렌더링
   groups.forEach(group => {
     html += `
@@ -1131,6 +1131,7 @@ function renderSpreadsheet(folder) {
           </div>
         </td>
       </tr>`;
+    html += colHeaderRow;
     (aptsByGroup[group.id] || []).forEach(apt => { html += renderAptBlock(apt, groups); });
   });
 
@@ -1142,6 +1143,7 @@ function renderSpreadsheet(folder) {
           <td colspan="13" style="font-size:12px;color:var(--text3);">미배정</td>
         </tr>`;
     }
+    html += colHeaderRow;
     ungrouped.forEach(apt => { html += renderAptBlock(apt, groups); });
   }
 
@@ -1263,7 +1265,7 @@ function renderAptBlock(apt, groups) {
           </div>
         </div>
       </th>
-      <th style="width:52px;">전용면적</th>
+      <th style="width:52px;">공급면적</th>
       <th style="width:52px;">세대수</th>
       <th style="width:120px;">최근 거래가</th>
       <th style="width:120px;">3년 최고가</th>
