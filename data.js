@@ -220,6 +220,7 @@ function createFolder(name) {
     id: Date.now().toString(),
     name,
     createdAt: new Date().toISOString(),
+    groups: [],
     apartments: [],
     memo: { traffic: '', school: '', environment: '', notes: '' },
     photos: [],
@@ -277,6 +278,7 @@ function saveApartment(folderId, aptData) {
     areas: aptData.areas || [],
     areaStats: aptData.areaStats || [],
     trades: aptData.trades || [],
+    groupId: aptData.groupId !== undefined ? (aptData.groupId || null) : (existingRecord?.groupId ?? null),
     // 수동 입력: 전달된 manual 우선, 없으면 기존 값 유지, 그도 없으면 빈 값
     manual: aptData.manual
       ? { ...(existingRecord?.manual || {}), ...aptData.manual,
@@ -435,6 +437,54 @@ function updateGraphReport(folderId, graphId, report) {
     const graph = folder.graphs.find(g => g.id === graphId);
     if (graph) { graph.report = report; saveDB(db); }
   }
+}
+
+// ─── 그룹 관리 ────────────────────────────────────────────────────
+function createGroup(folderId, name) {
+  const db = loadDB();
+  const folder = db.folders.find(f => f.id === folderId);
+  if (!folder) return null;
+  if (!folder.groups) folder.groups = [];
+  const group = { id: Date.now().toString(), name };
+  folder.groups.push(group);
+  saveDB(db);
+  return group;
+}
+
+function renameGroup(folderId, groupId, newName) {
+  const db = loadDB();
+  const folder = db.folders.find(f => f.id === folderId);
+  if (!folder || !folder.groups) return;
+  const g = folder.groups.find(g => g.id === groupId);
+  if (g) { g.name = newName; saveDB(db); }
+}
+
+function deleteGroup(folderId, groupId) {
+  const db = loadDB();
+  const folder = db.folders.find(f => f.id === folderId);
+  if (!folder) return;
+  folder.groups = (folder.groups || []).filter(g => g.id !== groupId);
+  folder.apartments = (folder.apartments || []).map(a =>
+    a.groupId === groupId ? { ...a, groupId: null } : a
+  );
+  saveDB(db);
+}
+
+function reorderGroups(folderId, orderedIds) {
+  const db = loadDB();
+  const folder = db.folders.find(f => f.id === folderId);
+  if (!folder || !folder.groups) return;
+  const map = Object.fromEntries(folder.groups.map(g => [g.id, g]));
+  folder.groups = orderedIds.map(id => map[id]).filter(Boolean);
+  saveDB(db);
+}
+
+function updateAptGroup(folderId, aptId, groupId) {
+  const db = loadDB();
+  const folder = db.folders.find(f => f.id === folderId);
+  if (!folder) return;
+  const apt = folder.apartments.find(a => a.id === aptId);
+  if (apt) { apt.groupId = groupId || null; saveDB(db); }
 }
 
 // JSON 내보내기

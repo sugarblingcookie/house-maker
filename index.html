@@ -185,7 +185,8 @@
         <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <span>직접 입력 정보</span>
           <div style="display:flex;align-items:center;gap:8px;">
-            <select id="folderSelect" style="font-size:12px;padding:5px 8px;min-width:100px;"></select>
+            <select id="folderSelect" style="font-size:12px;padding:5px 8px;min-width:100px;" onchange="onFolderSelectChange()"></select>
+            <select id="groupSelect" style="font-size:12px;padding:5px 8px;min-width:100px;display:none;"></select>
             <button class="btn btn-sm btn-primary" id="saveBtn" onclick="saveToFolder()">저장하기</button>
             <span id="saveStatusMsg" style="font-size:11px;color:var(--text3);"></span>
           </div>
@@ -483,6 +484,27 @@ function updateSaveBar() {
     : '<option value="">폴더 없음</option>';
   if (prev && folders.find(f => f.id === prev)) sel.value = prev;
   if (btn) btn.disabled = !apartments.length || !folders.length;
+  onFolderSelectChange();
+}
+
+function onFolderSelectChange() {
+  const folderId = document.getElementById('folderSelect').value;
+  const groupSel = document.getElementById('groupSelect');
+  if (!groupSel) return;
+  const folder = getFolders().find(f => f.id === folderId);
+  const groups = folder?.groups || [];
+  if (groups.length) {
+    // 기존에 저장된 아파트면 해당 그룹을 기본 선택
+    const existing = activeApt && folder
+      ? (folder.apartments || []).find(a => a.name === activeApt.name && a.lawdCd === activeApt.lawdCd)
+      : null;
+    const existingGroupId = existing?.groupId || '';
+    groupSel.style.display = '';
+    groupSel.innerHTML = `<option value="">미배정</option>` +
+      groups.map(g => `<option value="${g.id}" ${g.id === existingGroupId ? 'selected' : ''}>${g.name}</option>`).join('');
+  } else {
+    groupSel.style.display = 'none';
+  }
 }
 
 function saveToFolder() {
@@ -498,6 +520,12 @@ function saveToFolder() {
   const isUpdate = !!existing;
   const existingManual = existing?.manual || {};
 
+  // 그룹 선택값 읽기 (드롭다운이 보이는 경우에만 적용)
+  const groupSel = document.getElementById('groupSelect');
+  const groupId = (groupSel && groupSel.style.display !== 'none')
+    ? (groupSel.value || null)
+    : undefined;
+
   // 기존 area 데이터를 베이스로, 입력된 값만 덮어쓰기 (빈 값이면 기존 값 유지)
   const mergedAreas = JSON.parse(JSON.stringify(existingManual.areas || {}));
   document.querySelectorAll('#manualAreaTable input[data-area]').forEach(el => {
@@ -509,6 +537,7 @@ function saveToFolder() {
 
   const aptData = {
     ...activeApt,
+    ...(groupId !== undefined ? { groupId } : {}),
     manual: {
       ...existingManual,
       corridorType: document.getElementById('m_corridor').value || existingManual.corridorType || '',
