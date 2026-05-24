@@ -962,7 +962,7 @@ function renderSpreadsheet(folder) {
       : allAreaStats;
     const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${apt.buildingAge}년차)</span></span>` : '—';
     let r = '';
-    r += `<tr class="apt-gap"><td colspan="9"></td></tr>`;
+    r += `<tr class="apt-gap"><td colspan="10"></td></tr>`;
     r += `
       <tr class="apt-main">
         <td>${esc(apt.name)}</td>
@@ -970,15 +970,18 @@ function renderSpreadsheet(folder) {
         <td>${buildInfo}</td>
         <td>${esc(m.totalUnits||'')||'—'}</td>
         <td>${esc(m.corridorType||'')||'—'}</td>
+        <td>${esc(m.parking||'')||'—'}</td>
+        <td>${esc(m.farRatio||'')||'—'}</td>
+        <td style="white-space:nowrap;">${esc(m.stationDist||'')||'—'}</td>
         <td>${(apt.trades||[]).length}건</td>
-        <td colspan="3" style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
+        <td style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
       </tr>
       <tr class="apt-sub-hdr">
         <th style="padding-left:20px;width:70px;">└ 타입</th>
         <th style="width:52px;white-space:nowrap;">전용면적</th><th style="width:52px;white-space:nowrap;">세대수</th>
         <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:100px;">고점대비</th>
-        <th style="width:60px;white-space:nowrap;">세대당 주차</th>
         <th style="width:52px;white-space:nowrap;">방</th><th style="width:52px;white-space:nowrap;">화장실</th>
+        <th colspan="2"></th>
       </tr>`;
     areaStats.forEach(s => {
       const saved = (m.areas||{})[s.area] || {};
@@ -1005,7 +1008,6 @@ function renderSpreadsheet(folder) {
           <td class="mono">${latestPrice}${latestDate ? `<br><span class="sub-note">(${latestDate})</span>` : ''}</td>
           <td class="mono">${highPrice}${highNote ? `<br><span class="sub-note">${highNote}</span>` : ''}</td>
           <td class="mono">${fmtHighPct(parsePrice(s.latestPrice), parsePrice(s.highPrice), s.isAtHigh)}</td>
-          <td>${esc(saved.parking||'')||'—'}</td>
           <td>${esc(saved.rooms||'')||'—'}</td>
           <td>${esc(saved.bathrooms||'')||'—'}</td>
         </tr>`;
@@ -1028,7 +1030,6 @@ function renderSpreadsheet(folder) {
           <td class="mono">${latestPrice}</td>
           <td class="mono">${highPrice}</td>
           <td class="mono">${fmtHighPct(parsePrice(saved.manualLatestPrice), parsePrice(saved.manualHighPrice), false)}</td>
-          <td>${esc(saved.parking||'')||'—'}</td>
           <td>${esc(saved.rooms||'')||'—'}</td>
           <td>${esc(saved.bathrooms||'')||'—'}</td>
         </tr>`;
@@ -1037,7 +1038,7 @@ function renderSpreadsheet(folder) {
   }
 
   if (!apts.length) {
-    rows = `<tr><td colspan="9" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
+    rows = `<tr><td colspan="10" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
   } else if (!groups.length) {
     apts.forEach(apt => { rows += renderAptRows(apt); });
   } else {
@@ -1054,11 +1055,11 @@ function renderSpreadsheet(folder) {
     groups.forEach(group => {
       const groupApts = aptsByGroup[group.id] || [];
       if (!groupApts.length) return;
-      rows += `<tr class="apt-group-hdr"><td colspan="9">📍 ${esc(group.name)}</td></tr>`;
+      rows += `<tr class="apt-group-hdr"><td colspan="10">📍 ${esc(group.name)}</td></tr>`;
       groupApts.forEach(apt => { rows += renderAptRows(apt); });
     });
     if (ungrouped.length) {
-      rows += `<tr class="apt-group-hdr"><td colspan="9">미배정</td></tr>`;
+      rows += `<tr class="apt-group-hdr"><td colspan="10">미배정</td></tr>`;
       ungrouped.forEach(apt => { rows += renderAptRows(apt); });
     }
   }
@@ -1073,7 +1074,9 @@ function renderSpreadsheet(folder) {
         <table class="apt-table">
           <thead><tr>
             <th style="width:110px;">아파트명</th><th>지역</th><th style="width:90px;">건축연도</th>
-            <th>전체세대수</th><th>복도형식</th><th>거래건수 (12개월)</th><th>메모</th><th></th><th></th>
+            <th>전체세대수</th><th>복도형식</th><th style="width:70px;">세대당 주차</th>
+            <th style="width:70px;">용적률</th><th style="width:120px;">역 거리</th>
+            <th>거래건수 (12개월)</th><th>메모</th>
           </tr></thead>
           <!-- 서브 헤더는 각 아파트 rows 내에 포함 -->
           <tbody>${rows}</tbody>
