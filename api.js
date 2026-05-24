@@ -84,7 +84,7 @@ async function fetchAptNamesInRegion(lawdCd) {
   if (aptNameCache[lawdCd]) return aptNameCache[lawdCd];
 
   const now = new Date();
-  const nameSet = new Set();
+  const nameMap = new Map(); // name → buildYear
 
   // 최근 12개월치 호출해서 아파트 목록 수집
   for (let i = 11; i >= 0; i--) {
@@ -99,14 +99,20 @@ async function fetchAptNamesInRegion(lawdCd) {
       const xml = new DOMParser().parseFromString(text, 'text/xml');
       const errMsg = xml.querySelector('errMsg, returnAuthMsg, cmmMsgHeader > errMsg')?.textContent?.trim();
       if (errMsg) console.warn(`[APT] API 오류 메시지: ${errMsg}`);
-      xml.querySelectorAll('item aptNm').forEach(el => {
-        const nm = el.textContent?.trim();
-        if (nm) nameSet.add(nm);
+      xml.querySelectorAll('item').forEach(item => {
+        const nm = item.querySelector('aptNm')?.textContent?.trim();
+        if (!nm) return;
+        if (!nameMap.has(nm)) {
+          const by = item.querySelector('buildYear')?.textContent?.trim();
+          nameMap.set(nm, (by && by.length === 4) ? parseInt(by) : null);
+        }
       });
     } catch(e) { console.error('[APT] fetch 오류:', e); }
   }
 
-  const result = [...nameSet].sort();
+  const result = [...nameMap.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+    .map(([name, buildYear]) => ({ name, buildYear }));
   aptNameCache[lawdCd] = result;
   return result;
 }
@@ -116,7 +122,7 @@ async function fetchAptNamesInRegion(lawdCd) {
 async function searchCandidates(lawdCd, query) {
   if (!query || query.trim().length < 1) return [];
   const allNames = await fetchAptNamesInRegion(lawdCd);
-  return allNames.filter(name => matchesQuery(name, query));
+  return allNames.filter(item => matchesQuery(item.name, query));
 }
 
 // ─── 특정 아파트 실거래 데이터 (병렬 fetch) ──────────────────────

@@ -41,6 +41,7 @@
   color: var(--text);
 }
 .candidate-item .match-highlight { color: var(--accent); font-weight: 500; }
+.candidate-item .candidate-year { font-size: 11px; color: var(--text3); margin-left: 6px; }
 .candidate-count { font-size: 11px; color: var(--text3); }
 .candidate-loading {
   padding: 12px 14px;
@@ -303,10 +304,11 @@ async function showCandidates(q) {
     return;
   }
 
-  box.innerHTML = results.map((name, i) => {
-    const highlighted = highlightMatch(name, q);
+  box.innerHTML = results.map((item, i) => {
+    const highlighted = highlightMatch(item.name, q);
+    const yearTag = item.buildYear ? `<span class="candidate-year">${item.buildYear}년</span>` : '';
     return `<div class="candidate-item" data-idx="${i}" onclick="selectCandidate(${i})">
-      <span>${highlighted}</span>
+      <span>${highlighted}</span>${yearTag}
     </div>`;
   }).join('') + (results.length >= 20 ? `<div class="candidate-empty" style="font-size:11px;">검색어를 더 구체적으로 입력하면 좁혀집니다</div>` : '');
 }
@@ -365,8 +367,9 @@ function closeCandidates() {
 
 // 후보 선택 → 데이터 로드
 async function selectCandidate(idx) {
-  const name = currentCandidates[idx];
-  if (!name) return;
+  const item = currentCandidates[idx];
+  if (!item) return;
+  const name = item.name;
   document.getElementById('searchInput').value = name;
   closeCandidates();
   await loadApartment(name);
@@ -378,9 +381,10 @@ async function triggerSearch() {
   if (!q) { setStatus('아파트 이름을 입력해주세요.', 'error'); return; }
 
   // 정확히 일치하는 후보가 있으면 바로 로드
-  if (currentCandidates.includes(q)) {
+  const exactMatch = currentCandidates.find(c => c.name === q);
+  if (exactMatch) {
     closeCandidates();
-    await loadApartment(q);
+    await loadApartment(exactMatch.name);
     return;
   }
 
@@ -391,7 +395,7 @@ async function triggerSearch() {
   const results = await searchCandidates(lawdCd, q);
   if (results.length === 1) {
     closeCandidates();
-    await loadApartment(results[0]);
+    await loadApartment(results[0].name);
   } else if (results.length > 1) {
     currentCandidates = results;
     showCandidates(q);
