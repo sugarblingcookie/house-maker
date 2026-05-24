@@ -1037,7 +1037,7 @@ function startRenameFolder(e, id) {
   });
 }
 
-function selectFolder(id) {
+async function selectFolder(id) {
   const switching = currentFolderId !== id;
   currentFolderId = id;
   const folder = getFolder(id);
@@ -1053,8 +1053,16 @@ function selectFolder(id) {
     renderSpreadsheet(folder);
     renderMemo(folder);
     renderGraphs(folder);
-    renderPhotos(folder);
+    await refreshPhotos();
   }
+}
+
+// 사진 목록 비동기 로드 후 렌더 (IndexedDB에서 이미지 데이터 가져옴)
+async function refreshPhotos() {
+  if (!currentFolderId) return;
+  const photos = await loadPhotosForFolder(currentFolderId);
+  const folder = getFolder(currentFolderId);
+  renderPhotos({ ...folder, photos });
 }
 
 function createNewFolder() {
@@ -1666,10 +1674,10 @@ function renderPhotos(folder) {
   `).join('');
 }
 
-function addReportEntry() {
+async function addReportEntry() {
   if (!currentFolderId) return;
-  addPhoto(currentFolderId, { name: '', data: '', caption: '', report: '' });
-  renderPhotos(getFolder(currentFolderId));
+  await addPhoto(currentFolderId, { name: '', data: '', caption: '', report: '' });
+  await refreshPhotos();
 }
 
 function reportPhotoBoxClick(e, id) {
@@ -1691,34 +1699,33 @@ function handleReportPhotoDrop(e, id) {
 }
 
 function loadReportPhoto(file, id) {
-  compressImage(file, data => {
-    updatePhotoData(currentFolderId, id, data);
-    renderPhotos(getFolder(currentFolderId));
+  compressImage(file, async data => {
+    await updatePhotoData(currentFolderId, id, data);
+    await refreshPhotos();
   });
 }
 
-function removeReportPhoto(e, id) {
+async function removeReportPhoto(e, id) {
   e.stopPropagation();
-  updatePhotoData(currentFolderId, id, '');
-  renderPhotos(getFolder(currentFolderId));
+  await updatePhotoData(currentFolderId, id, '');
+  await refreshPhotos();
 }
 
 function updateReport(photoId, report) {
   debouncedSave(() => updatePhotoReport(currentFolderId, photoId, report));
 }
 
-function removeReportEntry(photoId) {
+async function removeReportEntry(photoId) {
   if (!confirm('이 항목을 삭제할까요?')) return;
-  deletePhoto(currentFolderId, photoId);
-  renderPhotos(getFolder(currentFolderId));
+  await deletePhoto(currentFolderId, photoId);
+  await refreshPhotos();
 }
 
-function openReportLightbox(e, id) {
+async function openReportLightbox(e, id) {
   e.stopPropagation();
-  const folder = getFolder(currentFolderId);
-  const photo  = (folder.photos || []).find(p => p.id === id);
-  if (!photo || !photo.data) return;
-  document.getElementById('report_lightbox_img').src = photo.data;
+  const data = await _idbGet(id);
+  if (!data) return;
+  document.getElementById('report_lightbox_img').src = data;
   document.getElementById('report_lightbox').style.display = 'flex';
 }
 
@@ -2286,7 +2293,7 @@ function handleImport(e) {
 }
 
 initWorkRegionSelect();
-init();
+migratePhotosToIDB().then(() => init());
 </script>
 </body>
 </html>

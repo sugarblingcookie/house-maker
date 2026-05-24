@@ -190,6 +190,83 @@ const WORK_DATA = {
 
 const DB_KEY = 'apt_tracker_v1';
 
+// ─── IndexedDB (사진 이미지 데이터 전용) ─────────────────────────────
+// localStorage에는 id/caption 등 메타만 저장, 이미지 data는 여기에 저장
+const IDB_NAME = 'apt_tracker_photos';
+const IDB_STORE = 'photos';
+
+function _openPhotoDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+async function _idbPut(id, folderId, data) {
+  const db = await _openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put({ id, folderId, data });
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+async function _idbGet(id) {
+  const db = await _openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get(id);
+    req.onsuccess = e => resolve(e.target.result?.data || null);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+async function _idbDelete(id) {
+  const db = await _openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+async function _idbGetAllForFolder(folderId) {
+  const db = await _openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).getAll();
+    req.onsuccess = e => {
+      const map = {};
+      e.target.result.filter(r => r.folderId === folderId).forEach(r => { map[r.id] = r.data; });
+      resolve(map);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// 폴더 사진 목록을 메타+이미지 데이터 합쳐서 반환 (비동기)
+async function loadPhotosForFolder(folderId) {
+  const folder = getFolder(folderId);
+  const metas = folder?.photos || [];
+  if (!metas.length) return [];
+  const dataMap = await _idbGetAllForFolder(folderId);
+  return metas.map(p => ({ ...p, data: dataMap[p.id] || '' }));
+}
+
+// 기존 localStorage에 남아있는 photo.data를 IndexedDB로 이전 (앱 시작 시 1회)
+async function migratePhotosToIDB() {
+  const db = loadDB();
+  let needsSave = false;
+  for (const folder of db.folders) {
+    for (const photo of (folder.photos || [])) {
+      if (photo.data) {
+        await _idbPut(photo.id, folder.id, photo.data);
+        delete photo.data;
+        needsSave = true;
+      }
+    }
+  }
+  if (needsSave) saveDB(db);
+}
+
 function loadDB() {
   try {
     const raw = localStorage.getItem(DB_KEY);
@@ -334,35 +411,37 @@ function saveMemo(folderId, memo) {
   if (folder) { folder.memo = { ...folder.memo, ...memo }; saveDB(db); }
 }
 
-// 사진 추가 (base64)
-function addPhoto(folderId, photoData) {
+// 사진 추가 — 메타는 localStorage, 이미지 data는 IndexedDB
+async function addPhoto(folderId, photoData) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
   if (!folder) return;
   if (!folder.photos) folder.photos = [];
   const photo = {
     id: Date.now().toString(),
-    name: photoData.name,
-    data: photoData.data,
+    name: photoData.name || '',
     caption: photoData.caption || '',
+    report: photoData.report || '',
     addedAt: new Date().toISOString()
   };
   folder.photos.push(photo);
   saveDB(db);
+  if (photoData.data) await _idbPut(photo.id, folderId, photoData.data);
   return photo;
 }
 
-// 사진 삭제
-function deletePhoto(folderId, photoId) {
+// 사진 삭제 — localStorage 메타 + IndexedDB 데이터 모두 제거
+async function deletePhoto(folderId, photoId) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
   if (folder && folder.photos) {
     folder.photos = folder.photos.filter(p => p.id !== photoId);
     saveDB(db);
   }
+  await _idbDelete(photoId);
 }
 
-// 사진 캡션 수정
+// 사진 캡션 수정 (localStorage 메타만)
 function updatePhotoCaption(folderId, photoId, caption) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
@@ -372,7 +451,7 @@ function updatePhotoCaption(folderId, photoId, caption) {
   }
 }
 
-// 임장 보고서 텍스트 수정
+// 임장 보고서 텍스트 수정 (localStorage 메타만)
 function updatePhotoReport(folderId, photoId, report) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
@@ -382,13 +461,12 @@ function updatePhotoReport(folderId, photoId, report) {
   }
 }
 
-// 사진 데이터(이미지) 업데이트
-function updatePhotoData(folderId, photoId, data) {
-  const db = loadDB();
-  const folder = db.folders.find(f => f.id === folderId);
-  if (folder && folder.photos) {
-    const photo = folder.photos.find(p => p.id === photoId);
-    if (photo) { photo.data = data; saveDB(db); }
+// 사진 이미지 업데이트 — IndexedDB에만 저장
+async function updatePhotoData(folderId, photoId, data) {
+  if (data) {
+    await _idbPut(photoId, folderId, data);
+  } else {
+    await _idbDelete(photoId);
   }
 }
 

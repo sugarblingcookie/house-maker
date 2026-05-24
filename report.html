@@ -1165,7 +1165,7 @@ function renderReport(folder) {
   document.title = `임장 레포트 — ${folder.name} (${todayStr()})`;
 }
 
-(function() {
+(async function() {
   const params = new URLSearchParams(location.search);
   const folderId = params.get('id');
   if (!folderId) {
@@ -1177,7 +1177,9 @@ function renderReport(folder) {
     document.getElementById('reportRoot').innerHTML = '<div style="padding:60px 20px;text-align:center;" class="empty-notice">폴더를 찾을 수 없습니다.</div>';
     return;
   }
-  renderReport(folder);
+  // 사진 이미지를 IndexedDB에서 로드 후 렌더
+  const photos = await loadPhotosForFolder(folderId);
+  renderReport({ ...folder, photos });
 })();
 </script>
 
