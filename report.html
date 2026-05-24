@@ -466,6 +466,16 @@ body {
 }
 .apt-table tr.apt-sub:last-of-type td { border-bottom: none; }
 .apt-table tr.apt-gap td { height: 10px; background: var(--apt-gap-bg); border: none; }
+.apt-table tr.apt-group-hdr td {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--tbl-hdr-border);
+  letter-spacing: 0.03em;
+}
 .sub-note { color: var(--text5); font-size: 10px; }
 .mono { font-family: 'DM Mono', monospace; }
 
@@ -934,6 +944,7 @@ function renderAnalysis(folder) {
 /* ══ 시세 정리 ══ */
 function renderSpreadsheet(folder) {
   const apts = folder.apartments || [];
+  const groups = folder.groups || [];
   let rows = '';
   // 저장된 타입 필터 로드
   let savedFilters = {};
@@ -942,91 +953,116 @@ function renderSpreadsheet(folder) {
     if (raw) savedFilters = JSON.parse(raw);
   } catch(e) {}
 
-  if (!apts.length) {
-    rows = `<tr><td colspan="7" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
-  } else {
-    apts.forEach(apt => {
-      const m = apt.manual || {};
-      const allAreaStats = apt.areaStats || [];
-      const filterSet = savedFilters[apt.id] ? new Set(savedFilters[apt.id]) : null;
-      const areaStats = filterSet
-        ? allAreaStats.filter(s => filterSet.has(String(s.area)))
-        : allAreaStats;
-      const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${apt.buildingAge}년차)</span></span>` : '—';
-      rows += `<tr class="apt-gap"><td colspan="9"></td></tr>`;
-      rows += `
-        <tr class="apt-main">
-          <td>${esc(apt.name)}</td>
-          <td style="white-space:nowrap;">${esc(shortRegion(apt.regionName))}</td>
-          <td>${buildInfo}</td>
-          <td>${esc(m.totalUnits||'')||'—'}</td>
-          <td>${esc(m.corridorType||'')||'—'}</td>
-          <td>${(apt.trades||[]).length}건</td>
-          <td colspan="3" style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
-        </tr>
-        <tr class="apt-sub-hdr">
-          <th style="padding-left:20px;width:70px;">└ 타입</th>
-          <th style="width:52px;white-space:nowrap;">전용면적</th><th style="width:52px;white-space:nowrap;">세대수</th>
-          <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:100px;">고점대비</th>
-          <th style="width:60px;white-space:nowrap;">세대당 주차</th>
-          <th style="width:52px;white-space:nowrap;">방</th><th style="width:52px;white-space:nowrap;">화장실</th>
-        </tr>`;
-      areaStats.forEach(s => {
-        const saved = (m.areas||{})[s.area] || {};
-        const pyeong = Math.round(s.area / 3.3);
-        let latestPrice = '—', latestDate = '';
-        if (s.latestPrice && s.latestPrice !== '-') {
-          latestPrice = s.latestPrice + '억';
-          latestDate = s.latestDate || '';
-        } else if (!s.latestPrice) {
-          const ts = (apt.trades||[]).filter(t => Math.round(t.area) === s.area);
-          if (ts.length) {
-            const latest = [...ts].sort((a,b) => b.date.localeCompare(a.date))[0];
-            latestPrice = (latest.price/10000).toFixed(2) + '억';
-            latestDate = latest.date;
-          }
+  function renderAptRows(apt) {
+    const m = apt.manual || {};
+    const allAreaStats = apt.areaStats || [];
+    const filterSet = savedFilters[apt.id] ? new Set(savedFilters[apt.id]) : null;
+    const areaStats = filterSet
+      ? allAreaStats.filter(s => filterSet.has(String(s.area)))
+      : allAreaStats;
+    const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${apt.buildingAge}년차)</span></span>` : '—';
+    let r = '';
+    r += `<tr class="apt-gap"><td colspan="9"></td></tr>`;
+    r += `
+      <tr class="apt-main">
+        <td>${esc(apt.name)}</td>
+        <td style="white-space:nowrap;">${esc(shortRegion(apt.regionName))}</td>
+        <td>${buildInfo}</td>
+        <td>${esc(m.totalUnits||'')||'—'}</td>
+        <td>${esc(m.corridorType||'')||'—'}</td>
+        <td>${(apt.trades||[]).length}건</td>
+        <td colspan="3" style="font-size:11px;font-weight:400;">${esc(m.notes||'')}</td>
+      </tr>
+      <tr class="apt-sub-hdr">
+        <th style="padding-left:20px;width:70px;">└ 타입</th>
+        <th style="width:52px;white-space:nowrap;">전용면적</th><th style="width:52px;white-space:nowrap;">세대수</th>
+        <th style="width:110px;white-space:nowrap;">최근 거래가</th><th style="width:110px;white-space:nowrap;">3년 최고가</th><th style="white-space:nowrap;width:100px;">고점대비</th>
+        <th style="width:60px;white-space:nowrap;">세대당 주차</th>
+        <th style="width:52px;white-space:nowrap;">방</th><th style="width:52px;white-space:nowrap;">화장실</th>
+      </tr>`;
+    areaStats.forEach(s => {
+      const saved = (m.areas||{})[s.area] || {};
+      const pyeong = Math.round(s.area / 3.3);
+      let latestPrice = '—', latestDate = '';
+      if (s.latestPrice && s.latestPrice !== '-') {
+        latestPrice = s.latestPrice + '억';
+        latestDate = s.latestDate || '';
+      } else if (!s.latestPrice) {
+        const ts = (apt.trades||[]).filter(t => Math.round(t.area) === s.area);
+        if (ts.length) {
+          const latest = [...ts].sort((a,b) => b.date.localeCompare(a.date))[0];
+          latestPrice = (latest.price/10000).toFixed(2) + '억';
+          latestDate = latest.date;
         }
-        const highPrice = s.highPrice ? s.highPrice + '억' : '—';
-        const highNote  = s.isAtHigh ? '▲ 고점' : (s.highDate || '');
-        rows += `
-          <tr class="apt-sub">
-            <td style="padding-left:20px;white-space:nowrap;">${s.area}㎡<br><span class="sub-note">${pyeong}평</span></td>
-            <td>${esc(saved.supply||'')||'—'}</td>
-            <td>${esc(saved.units||'')||'—'}</td>
-            <td class="mono">${latestPrice}${latestDate ? `<br><span class="sub-note">(${latestDate})</span>` : ''}</td>
-            <td class="mono">${highPrice}${highNote ? `<br><span class="sub-note">${highNote}</span>` : ''}</td>
-            <td class="mono">${fmtHighPct(parsePrice(s.latestPrice), parsePrice(s.highPrice), s.isAtHigh)}</td>
-            <td>${esc(saved.parking||'')||'—'}</td>
-            <td>${esc(saved.rooms||'')||'—'}</td>
-            <td>${esc(saved.bathrooms||'')||'—'}</td>
-          </tr>`;
-      });
-
-      // 수동 추가 타입 행
-      const filteredCustomAreas = filterSet
-        ? (m.customAreas || []).filter(k => filterSet.has(k))
-        : (m.customAreas || []);
-      filteredCustomAreas.forEach(areaKey => {
-        const saved = (m.areas||{})[areaKey] || {};
-        const num = parseFloat(areaKey);
-        const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
-        const latestPrice = esc(saved.manualLatestPrice || '') || '—';
-        const highPrice   = esc(saved.manualHighPrice   || '') || '—';
-        rows += `
-          <tr class="apt-sub">
-            <td style="padding-left:20px;white-space:nowrap;">${esc(parseFloat(areaKey)||areaKey)}㎡${pyeong !== null ? `<br><span class="sub-note">${pyeong}평</span>` : ''}<br><span style="color:#4a7c20;font-size:10px;">수동</span></td>
-            <td>${esc(saved.supply||'')||'—'}</td>
-            <td>${esc(saved.units||'')||'—'}</td>
-            <td class="mono">${latestPrice}</td>
-            <td class="mono">${highPrice}</td>
-            <td class="mono">${fmtHighPct(parsePrice(saved.manualLatestPrice), parsePrice(saved.manualHighPrice), false)}</td>
-            <td>${esc(saved.parking||'')||'—'}</td>
-            <td>${esc(saved.rooms||'')||'—'}</td>
-            <td>${esc(saved.bathrooms||'')||'—'}</td>
-          </tr>`;
-      });
+      }
+      const highPrice = s.highPrice ? s.highPrice + '억' : '—';
+      const highNote  = s.isAtHigh ? '▲ 고점' : (s.highDate || '');
+      r += `
+        <tr class="apt-sub">
+          <td style="padding-left:20px;white-space:nowrap;">${s.area}㎡<br><span class="sub-note">${pyeong}평</span></td>
+          <td>${esc(saved.supply||'')||'—'}</td>
+          <td>${esc(saved.units||'')||'—'}</td>
+          <td class="mono">${latestPrice}${latestDate ? `<br><span class="sub-note">(${latestDate})</span>` : ''}</td>
+          <td class="mono">${highPrice}${highNote ? `<br><span class="sub-note">${highNote}</span>` : ''}</td>
+          <td class="mono">${fmtHighPct(parsePrice(s.latestPrice), parsePrice(s.highPrice), s.isAtHigh)}</td>
+          <td>${esc(saved.parking||'')||'—'}</td>
+          <td>${esc(saved.rooms||'')||'—'}</td>
+          <td>${esc(saved.bathrooms||'')||'—'}</td>
+        </tr>`;
     });
+    // 수동 추가 타입 행
+    const filteredCustomAreas = filterSet
+      ? (m.customAreas || []).filter(k => filterSet.has(k))
+      : (m.customAreas || []);
+    filteredCustomAreas.forEach(areaKey => {
+      const saved = (m.areas||{})[areaKey] || {};
+      const num = parseFloat(areaKey);
+      const pyeong = !isNaN(num) && num > 0 ? Math.round(num / 3.3) : null;
+      const latestPrice = esc(saved.manualLatestPrice || '') || '—';
+      const highPrice   = esc(saved.manualHighPrice   || '') || '—';
+      r += `
+        <tr class="apt-sub">
+          <td style="padding-left:20px;white-space:nowrap;">${esc(parseFloat(areaKey)||areaKey)}㎡${pyeong !== null ? `<br><span class="sub-note">${pyeong}평</span>` : ''}<br><span style="color:#4a7c20;font-size:10px;">수동</span></td>
+          <td>${esc(saved.supply||'')||'—'}</td>
+          <td>${esc(saved.units||'')||'—'}</td>
+          <td class="mono">${latestPrice}</td>
+          <td class="mono">${highPrice}</td>
+          <td class="mono">${fmtHighPct(parsePrice(saved.manualLatestPrice), parsePrice(saved.manualHighPrice), false)}</td>
+          <td>${esc(saved.parking||'')||'—'}</td>
+          <td>${esc(saved.rooms||'')||'—'}</td>
+          <td>${esc(saved.bathrooms||'')||'—'}</td>
+        </tr>`;
+    });
+    return r;
   }
+
+  if (!apts.length) {
+    rows = `<tr><td colspan="9" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
+  } else if (!groups.length) {
+    apts.forEach(apt => { rows += renderAptRows(apt); });
+  } else {
+    const aptsByGroup = {};
+    const ungrouped = [];
+    apts.forEach(apt => {
+      if (apt.groupId) {
+        if (!aptsByGroup[apt.groupId]) aptsByGroup[apt.groupId] = [];
+        aptsByGroup[apt.groupId].push(apt);
+      } else {
+        ungrouped.push(apt);
+      }
+    });
+    groups.forEach(group => {
+      const groupApts = aptsByGroup[group.id] || [];
+      if (!groupApts.length) return;
+      rows += `<tr class="apt-group-hdr"><td colspan="9">📍 ${esc(group.name)}</td></tr>`;
+      groupApts.forEach(apt => { rows += renderAptRows(apt); });
+    });
+    if (ungrouped.length) {
+      rows += `<tr class="apt-group-hdr"><td colspan="9">미배정</td></tr>`;
+      ungrouped.forEach(apt => { rows += renderAptRows(apt); });
+    }
+  }
+
   return `
     <div class="rpt-page">
       <div class="sec-header">
