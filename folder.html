@@ -240,8 +240,16 @@
   background: var(--surface2); border: 1.5px dashed var(--border2);
   border-radius: var(--radius); display: flex; align-items: center;
   justify-content: center; overflow: hidden; cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s; position: relative;
 }
+.photo-file-btn {
+  position: absolute; bottom: 8px; right: 8px;
+  font-size: 11px; padding: 3px 8px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; color: var(--text3); cursor: pointer; z-index: 2;
+  font-family: 'Noto Sans KR', sans-serif; transition: color 0.15s, border-color 0.15s;
+}
+.photo-file-btn:hover { color: var(--accent); border-color: var(--accent); }
 .report-photo-box:hover { border-color: var(--accent); }
 .report-photo-box img { width:100%;height:100%;object-fit:cover;display:block; }
 .report-photo-placeholder { font-size:12px;color:var(--text3);pointer-events:none;text-align:center;padding:8px; }
@@ -319,13 +327,14 @@
     <div class="card-title" style="margin-bottom:14px;">위치 &amp; 생활권역 <span class="auto-save-tag">자동저장</span></div>
     <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
       <div style="flex:0 0 auto;">
-        <div id="loc_photo_box" style="width:264px;height:198px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+        <div id="loc_photo_box" style="width:264px;height:198px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;position:relative;"
           onclick="locPhotoBoxClick(event)"
           ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
           ondragleave="this.style.borderColor=''"
           ondrop="handleLocPhotoDrop(event)">
-          <span id="loc_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;text-align:center;">+ 클릭 / 드래그 / Ctrl+V</span>
+          <span id="loc_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;text-align:center;">드래그 / Ctrl+V</span>
           <img id="loc_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openLocLightbox(event)" title="클릭하면 크게 보기" />
+          <button class="photo-file-btn" onclick="event.stopPropagation();document.getElementById('loc_photo_input').click()">파일 선택</button>
         </div>
         <input type="file" id="loc_photo_input" accept="image/*" style="display:none;" onchange="handleLocPhoto(event)" />
         <button id="loc_photo_del" class="btn btn-sm" style="margin-top:6px;width:264px;display:none;" onclick="removeLocPhoto()">사진 삭제</button>
@@ -631,13 +640,14 @@
         <!-- 사진 + 메모 -->
         <div style="display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;flex-wrap:wrap;">
           <div style="flex:0 0 auto;">
-            <div id="school_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+            <div id="school_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;position:relative;"
               onclick="schoolPhotoBoxClick(event)"
               ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
               ondragleave="this.style.borderColor=''"
               ondrop="handleSchoolPhotoDrop(event)">
-              <span id="school_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">+ 클릭 / 드래그 / Ctrl+V</span>
+              <span id="school_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">드래그 / Ctrl+V</span>
               <img id="school_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openSchoolPhotoLightbox(event)" title="클릭하면 크게 보기" />
+              <button class="photo-file-btn" onclick="event.stopPropagation();document.getElementById('school_photo_input').click()">파일 선택</button>
             </div>
             <input type="file" id="school_photo_input" accept="image/*" style="display:none;" onchange="handleSchoolPhoto(event)" />
             <button id="school_photo_del" class="btn btn-sm" style="margin-top:6px;width:240px;display:none;" onclick="removeSchoolPhoto()">사진 삭제</button>
@@ -716,13 +726,14 @@
         <!-- 사진 + 메모 -->
         <div style="display:flex;gap:16px;margin-bottom:20px;align-items:flex-start;flex-wrap:wrap;">
           <div style="flex:0 0 auto;">
-            <div id="env_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;"
+            <div id="env_photo_box" style="width:240px;height:180px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color 0.15s;cursor:pointer;position:relative;"
               onclick="envPhotoBoxClick(event)"
               ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
               ondragleave="this.style.borderColor=''"
               ondrop="handleEnvPhotoDrop(event)">
-              <span id="env_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">+ 클릭 / 드래그 / Ctrl+V</span>
+              <span id="env_photo_placeholder" style="font-size:12px;color:var(--text3);pointer-events:none;">드래그 / Ctrl+V</span>
               <img id="env_photo_img" style="display:none;width:100%;height:100%;object-fit:cover;" onclick="openEnvPhotoLightbox(event)" title="클릭하면 크게 보기" />
+              <button class="photo-file-btn" onclick="event.stopPropagation();document.getElementById('env_photo_input').click()">파일 선택</button>
             </div>
             <input type="file" id="env_photo_input" accept="image/*" style="display:none;" onchange="handleEnvPhoto(event)" />
             <button id="env_photo_del" class="btn btn-sm" style="margin-top:6px;width:240px;display:none;" onclick="removeEnvPhoto()">사진 삭제</button>
@@ -1475,8 +1486,9 @@ function renderPhotos(folder) {
             ondrop="handleReportPhotoDrop(event,'${p.id}')">
             ${p.data
               ? `<img src="${p.data}" onclick="openReportLightbox(event,'${p.id}')" title="클릭하면 크게 보기" />`
-              : `<div class="report-photo-placeholder">+ 클릭 / 드래그<br>/ Ctrl+V</div>`
+              : `<div class="report-photo-placeholder">드래그 / Ctrl+V</div>`
             }
+            <button class="photo-file-btn" onclick="event.stopPropagation();document.getElementById('rpi-${p.id}').click()">파일 선택</button>
           </div>
           <input type="file" id="rpi-${p.id}" accept="image/*" style="display:none;" onchange="handleReportPhotoInput(event,'${p.id}')" />
           ${p.data ? `<button class="btn btn-sm" style="margin-top:6px;width:240px;" onclick="removeReportPhoto(event,'${p.id}')">사진 삭제</button>` : ''}
@@ -1500,10 +1512,6 @@ function addReportEntry() {
 
 function reportPhotoBoxClick(e, id) {
   setPasteTarget(f => loadReportPhoto(f, id));
-  const folder = getFolder(currentFolderId);
-  const photo  = (folder.photos || []).find(p => p.id === id);
-  if (photo && photo.data) return; // 사진 있으면 img onclick이 처리
-  document.getElementById(`rpi-${id}`).click();
 }
 
 function handleReportPhotoInput(e, id) {
@@ -1580,8 +1588,9 @@ function renderGraphs(folder) {
             ondrop="handleGraphPhotoDrop(event,'${g.id}')">
             ${g.data
               ? `<img src="${g.data}" onclick="openGraphLightbox(event,'${g.id}')" title="클릭하면 크게 보기" />`
-              : `<div class="report-photo-placeholder">+ 클릭 / 드래그<br>/ Ctrl+V</div>`
+              : `<div class="report-photo-placeholder">드래그 / Ctrl+V</div>`
             }
+            <button class="photo-file-btn" onclick="event.stopPropagation();document.getElementById('gpi-${g.id}').click()">파일 선택</button>
           </div>
           <input type="file" id="gpi-${g.id}" accept="image/*" style="display:none;" onchange="handleGraphPhotoInput(event,'${g.id}')" />
           ${g.data ? `<button class="btn btn-sm" style="margin-top:6px;width:240px;" onclick="removeGraphPhoto(event,'${g.id}')">사진 삭제</button>` : ''}
@@ -1605,10 +1614,6 @@ function addGraphEntry() {
 
 function graphPhotoBoxClick(e, id) {
   setPasteTarget(f => loadGraphPhoto(f, id));
-  const folder = getFolder(currentFolderId);
-  const graph = (folder.graphs || []).find(g => g.id === id);
-  if (graph && graph.data) return;
-  document.getElementById(`gpi-${id}`).click();
 }
 
 function handleGraphPhotoInput(e, id) {
@@ -1794,8 +1799,6 @@ function onSchoolGradeChange() {
 
 function schoolPhotoBoxClick(e) {
   setPasteTarget(f => loadSchoolPhotoFile(f));
-  if (schoolPhotoData) return; // 사진 있으면 클릭 무시 (img의 onclick이 처리)
-  document.getElementById('school_photo_input').click();
 }
 
 function handleSchoolPhoto(e) {
@@ -1884,8 +1887,6 @@ function onEnvGradeChange() {
 
 function envPhotoBoxClick(e) {
   setPasteTarget(f => loadEnvPhotoFile(f));
-  if (envPhotoData) return;
-  document.getElementById('env_photo_input').click();
 }
 
 function handleEnvPhoto(e) {
@@ -1996,8 +1997,6 @@ let locPhotoData = '';
 
 function locPhotoBoxClick(e) {
   setPasteTarget(f => loadLocPhotoFile(f));
-  if (locPhotoData) return;
-  document.getElementById('loc_photo_input').click();
 }
 
 function handleLocPhoto(e) {
