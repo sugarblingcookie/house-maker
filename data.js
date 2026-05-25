@@ -403,7 +403,9 @@ function renameFolder(folderId, newName) {
 }
 
 // 폴더 삭제
-function deleteFolder(folderId) {
+async function deleteFolder(folderId) {
+  const idbEntries = await _idbGetAllForFolder(folderId);
+  await Promise.all(Object.keys(idbEntries).map(id => _idbDelete(id)));
   const db = loadDB();
   db.folders = db.folders.filter(f => f.id !== folderId);
   saveDB(db);
