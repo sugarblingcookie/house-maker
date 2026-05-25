@@ -97,23 +97,6 @@
 .area-table input:focus, .area-table select:focus {
   outline: none; border-bottom-color: var(--accent);
 }
-.corridor-row {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 16px; padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.corridor-row label {
-  font-size: 10px; color: var(--text3); font-weight: 500;
-  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
-}
-.corridor-row select,
-.corridor-row input[type="text"] {
-  background: transparent; border: none;
-  border-bottom: 1px dashed var(--border2);
-  border-radius: 0; padding: 2px 0;
-  font-size: 13px; font-weight: 500; color: var(--text);
-  font-family: 'Noto Sans KR', sans-serif;
-}
 </style>
 </head>
 <body>
@@ -182,31 +165,15 @@
         <div id="autoInfo"></div>
       </div>
 
-      <!-- Manual info -->
-      <div class="card">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <span>직접 입력 정보</span>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <select id="folderSelect" style="font-size:12px;padding:5px 8px;min-width:100px;" onchange="onFolderSelectChange()"></select>
-            <select id="groupSelect" style="font-size:12px;padding:5px 8px;min-width:100px;display:none;"></select>
-            <button class="btn btn-sm btn-primary" id="saveBtn" onclick="saveToFolder()">저장하기</button>
-            <span id="saveStatusMsg" style="font-size:11px;color:var(--text3);"></span>
-          </div>
+      <!-- Save to folder -->
+      <div class="card" style="padding:14px 18px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:600;color:var(--text);margin-right:4px;">내 폴더에 저장</span>
+          <select id="folderSelect" style="font-size:12px;padding:5px 8px;min-width:100px;" onchange="onFolderSelectChange()"></select>
+          <select id="groupSelect" style="font-size:12px;padding:5px 8px;min-width:100px;display:none;"></select>
+          <button class="btn btn-sm btn-primary" id="saveBtn" onclick="saveToFolder()">저장하기</button>
+          <span id="saveStatusMsg" style="font-size:11px;color:var(--text3);"></span>
         </div>
-        <div class="corridor-row">
-          <label>복도 형식</label>
-          <select id="m_corridor">
-            <option value="">선택</option>
-            <option>계단식</option><option>복도식</option><option>혼합</option>
-          </select>
-          <label style="margin-left:12px;">세대당 주차</label>
-          <input type="text" id="m_parking" placeholder="예: 1.2대" style="width:70px;" />
-          <label style="margin-left:12px;">용적률</label>
-          <input type="text" id="m_farRatio" placeholder="예: 250%" style="width:60px;" />
-          <label style="margin-left:12px;">역 거리</label>
-          <input type="text" id="m_stationDist" placeholder="예: 이문역 350m" style="width:110px;" />
-        </div>
-        <div id="manualAreaTable"></div>
       </div>
 
       <!-- Chart -->
@@ -534,26 +501,10 @@ function saveToFolder() {
     ? (groupSel.value || null)
     : undefined;
 
-  // 기존 area 데이터를 베이스로, 입력된 값만 덮어쓰기 (빈 값이면 기존 값 유지)
-  const mergedAreas = JSON.parse(JSON.stringify(existingManual.areas || {}));
-  document.querySelectorAll('#manualAreaTable input[data-area]').forEach(el => {
-    const area = el.dataset.area;
-    const field = el.dataset.field;
-    if (!mergedAreas[area]) mergedAreas[area] = {};
-    if (el.value !== '') mergedAreas[area][field] = el.value;
-  });
-
   const aptData = {
     ...activeApt,
     ...(groupId !== undefined ? { groupId } : {}),
-    manual: {
-      ...existingManual,
-      corridorType: document.getElementById('m_corridor').value || existingManual.corridorType || '',
-      parking: document.getElementById('m_parking').value || existingManual.parking || '',
-      farRatio: document.getElementById('m_farRatio').value || existingManual.farRatio || '',
-      stationDist: document.getElementById('m_stationDist').value || existingManual.stationDist || '',
-      areas: mergedAreas
-    }
+    manual: { ...existingManual }
   };
 
   saveApartment(folderId, aptData);
@@ -646,39 +597,6 @@ function renderContent() {
             </td>
           </tr>
         `).join('')}
-      </tbody>
-    </table>
-  `;
-
-  // 직접 입력 정보 — 면적별 입력 테이블
-  const manual = activeApt.manual || {};
-  document.getElementById('m_corridor').value = manual.corridorType || '';
-  document.getElementById('m_parking').value = manual.parking || '';
-  document.getElementById('m_farRatio').value = manual.farRatio || '';
-  document.getElementById('m_stationDist').value = manual.stationDist || '';
-  document.getElementById('manualAreaTable').innerHTML = `
-    <table class="area-table">
-      <thead>
-        <tr>
-          <th>타입</th>
-          <th>공급면적 (㎡)</th>
-          <th>세대수</th>
-          <th>방</th>
-          <th>화장실</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${activeApt.areaStats.map(s => {
-          const saved = (manual.areas || {})[s.area] || {};
-          return `
-          <tr>
-            <td style="line-height:1.6;">${s.area}㎡<br><span style="color:var(--text3);font-size:11px;">${s.pyeong}평</span></td>
-            <td><input type="text" data-area="${s.area}" data-field="supply" value="${saved.supply||''}" placeholder="예: 110.56" /></td>
-            <td><input type="text" data-area="${s.area}" data-field="units" value="${saved.units||''}" placeholder="예: 300" /></td>
-            <td><input type="text" data-area="${s.area}" data-field="rooms" value="${saved.rooms||''}" placeholder="예: 3" /></td>
-            <td><input type="text" data-area="${s.area}" data-field="bathrooms" value="${saved.bathrooms||''}" placeholder="예: 2" /></td>
-          </tr>`;
-        }).join('')}
       </tbody>
     </table>
   `;
