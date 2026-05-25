@@ -82,8 +82,16 @@ const APT_CACHE_LS_KEY = 'apt_name_cache_v4';
 const aptNameCache = {};
 
 function _loadAptCache() {
-  try { return JSON.parse(localStorage.getItem(APT_CACHE_LS_KEY) || '{}'); }
-  catch { return {}; }
+  try {
+    const cache = JSON.parse(localStorage.getItem(APT_CACHE_LS_KEY) || '{}');
+    const now = Date.now();
+    let cleaned = false;
+    Object.keys(cache).forEach(k => {
+      if (now - cache[k].ts >= APT_CACHE_TTL) { delete cache[k]; cleaned = true; }
+    });
+    if (cleaned) _saveAptCache(cache);
+    return cache;
+  } catch { return {}; }
 }
 function _saveAptCache(cache) {
   try { localStorage.setItem(APT_CACHE_LS_KEY, JSON.stringify(cache)); } catch {}

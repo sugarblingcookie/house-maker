@@ -299,37 +299,29 @@ async function saveMemoPhoto(folderId, key, data) {
 }
 
 // 기존 localStorage 이미지 데이터를 IndexedDB로 전부 이전 (앱 시작 시 1회)
+const MIGRATE_FLAG = 'apt_tracker_migrated_v1';
+
 async function migrateToIDB() {
+  if (localStorage.getItem(MIGRATE_FLAG)) return;
   const db = loadDB();
   let needsSave = false;
   for (const folder of db.folders) {
-    // 임장 보고서 사진
     for (const photo of (folder.photos || [])) {
-      if (photo.data) {
-        await _idbPut(photo.id, folder.id, photo.data);
-        delete photo.data;
-        needsSave = true;
-      }
+      if (photo.data) { await _idbPut(photo.id, folder.id, photo.data); delete photo.data; needsSave = true; }
     }
-    // 시세 그래프 이미지
     for (const graph of (folder.graphs || [])) {
-      if (graph.data) {
-        await _idbPut(graph.id, folder.id, graph.data);
-        delete graph.data;
-        needsSave = true;
-      }
+      if (graph.data) { await _idbPut(graph.id, folder.id, graph.data); delete graph.data; needsSave = true; }
     }
-    // 입지분석 사진 (loc/school/env)
     const m = folder.memo || {};
     for (const key of ['loc_photo', 'school_photo', 'env_photo']) {
       if (m[key]) {
         await _idbPut(`__${key.replace('_photo','')}_${folder.id}`, folder.id, m[key]);
-        delete m[key];
-        needsSave = true;
+        delete m[key]; needsSave = true;
       }
     }
   }
   if (needsSave) saveDB(db);
+  localStorage.setItem(MIGRATE_FLAG, '1');
 }
 
 let _dbCache = null;
@@ -656,7 +648,12 @@ async function exportJSON() {
   const db = loadDB();
   const idb = await _idbGetAll();
   const payload = { ...db, _idb: idb };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const json = JSON.stringify(payload, null, 2);
+  const sizeMB = (new TextEncoder().encode(json).byteLength / (1024 * 1024)).toFixed(1);
+  if (parseFloat(sizeMB) >= 10) {
+    if (!confirm(`백업 파일 크기가 약 ${sizeMB}MB입니다.\n사진이 많으면 파일이 클 수 있습니다. 계속 내보내기 하시겠습니까?`)) return;
+  }
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
