@@ -100,7 +100,7 @@ async function fetchAptNamesInRegion(lawdCd) {
   }
 
   const now = new Date();
-  const months = Array.from({ length: 3 }, (_, i) => {
+  const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
