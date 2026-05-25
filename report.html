@@ -1146,9 +1146,7 @@ function renderConclusion(folder) {
         <span class="sec-num">06</span>
         <span class="sec-title">결론</span>
       </div>
-      <div class="conclusion-text${!text.trim() ? ' conclusion-empty' : ''}">
-        ${text.trim() ? esc(text) : '결론이 입력되지 않았습니다.'}
-      </div>
+      <div class="conclusion-text${!text.trim() ? ' conclusion-empty' : ''}">${text.trim() ? esc(text) : '결론이 입력되지 않았습니다.'}</div>
     </div>`;
 }
 
