@@ -342,11 +342,29 @@ function loadDB() {
   }
 }
 
+function _showStorageBanner() {
+  let banner = document.getElementById('_storage_warn_banner');
+  if (banner) return;
+  banner = document.createElement('div');
+  banner.id = '_storage_warn_banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  banner.innerHTML = `
+    <span style="flex:1;">⚠️ 저장 공간이 부족합니다. 방금 입력한 내용이 저장되지 않았습니다. 임장 사진이나 그래프를 삭제해 공간을 확보하세요.</span>
+    <button onclick="document.getElementById('_storage_warn_banner').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">닫기</button>
+  `;
+  document.body.prepend(banner);
+}
+
+function _hideStorageBanner() {
+  document.getElementById('_storage_warn_banner')?.remove();
+}
+
 function saveDB(db) {
   try {
     localStorage.setItem(DB_KEY, JSON.stringify(db));
+    _hideStorageBanner();
   } catch(e) {
-    alert('저장 공간이 부족합니다. 사진 일부를 삭제해보세요.');
+    _showStorageBanner();
   }
 }
 
