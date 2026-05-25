@@ -1261,7 +1261,7 @@ function renderAptBlock(apt, groups) {
           <option ${m.corridorType==='혼합'?'selected':''}>혼합</option>
         </select>
       </td>
-      <td style="color:var(--text3);font-size:12px;font-weight:400;">${(apt.trades||[]).length}건</td>
+      <td style="color:var(--text3);font-size:12px;font-weight:400;">${(()=>{ const cut=new Date(); cut.setFullYear(cut.getFullYear()-1); return (apt.trades||[]).filter(t=>new Date(t.date)>=cut).length; })()}건</td>
       <td><input type="text" value="${m.parking||''}" placeholder="예: 1.2대" onchange="updateManual('${apt.id}','parking',this.value)" style="min-width:60px;" /></td>
       <td><input type="text" value="${m.farRatio||''}" placeholder="예: 250%" onchange="updateManual('${apt.id}','farRatio',this.value)" style="min-width:60px;" /></td>
       <td><input type="text" value="${m.stationDist||''}" placeholder="예: 이문역 350m" onchange="updateManual('${apt.id}','stationDist',this.value)" style="min-width:90px;" /></td>
