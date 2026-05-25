@@ -332,14 +332,17 @@ async function migrateToIDB() {
   if (needsSave) saveDB(db);
 }
 
+let _dbCache = null;
+
 function loadDB() {
+  if (_dbCache) return _dbCache;
   try {
     const raw = localStorage.getItem(DB_KEY);
-    if (!raw) return { folders: [] };
-    return JSON.parse(raw);
+    _dbCache = raw ? JSON.parse(raw) : { folders: [] };
   } catch(e) {
-    return { folders: [] };
+    _dbCache = { folders: [] };
   }
+  return _dbCache;
 }
 
 function _showStorageBanner() {
@@ -360,6 +363,7 @@ function _hideStorageBanner() {
 }
 
 function saveDB(db) {
+  _dbCache = db;
   try {
     localStorage.setItem(DB_KEY, JSON.stringify(db));
     _hideStorageBanner();
