@@ -76,14 +76,31 @@ function proxyUrl(apiUrl) {
   return `${PROXY}?url=${encodeURIComponent(apiUrl)}`;
 }
 
-// ─── 지역 아파트명 캐시 (최근 3개월 데이터 기반) ─────────────────
+// ─── 지역 아파트명 캐시 (메모리 + localStorage, 7일 유효) ──────────
+const APT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+const APT_CACHE_LS_KEY = 'apt_name_cache_v1';
 const aptNameCache = {};
+
+function _loadAptCache() {
+  try { return JSON.parse(localStorage.getItem(APT_CACHE_LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function _saveAptCache(cache) {
+  try { localStorage.setItem(APT_CACHE_LS_KEY, JSON.stringify(cache)); } catch {}
+}
 
 async function fetchAptNamesInRegion(lawdCd) {
   if (aptNameCache[lawdCd]) return aptNameCache[lawdCd];
 
+  const stored = _loadAptCache();
+  const entry = stored[lawdCd];
+  if (entry && Date.now() - entry.ts < APT_CACHE_TTL) {
+    aptNameCache[lawdCd] = entry.data;
+    return entry.data;
+  }
+
   const now = new Date();
-  const months = Array.from({ length: 12 }, (_, i) => {
+  const months = Array.from({ length: 3 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -114,7 +131,11 @@ async function fetchAptNamesInRegion(lawdCd) {
   const result = [...nameMap.entries()]
     .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
     .map(([name, buildYear]) => ({ name, buildYear }));
+
   aptNameCache[lawdCd] = result;
+  stored[lawdCd] = { ts: Date.now(), data: result };
+  _saveAptCache(stored);
+
   return result;
 }
 
