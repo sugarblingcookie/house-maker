@@ -730,8 +730,10 @@ const SESSION_KEY = 'apt_tracker_session';
 function saveSession() {
   try {
     const activeIdx = apartments.indexOf(activeApt);
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ apartments, activeIdx, selectedArea }));
-  } catch(e) { /* localStorage 용량 초과 시 무시 */ }
+    const slim = apartments.map(({ allTrades: _, ...rest }) => rest);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ apartments: slim, activeIdx, selectedArea }));
+    _hideStorageBanner();
+  } catch(e) { _showStorageBanner(); }
 }
 
 function restoreSession() {
