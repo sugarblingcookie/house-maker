@@ -78,7 +78,7 @@ function proxyUrl(apiUrl) {
 
 // ─── 지역 아파트명 캐시 (메모리 + localStorage, 7일 유효) ──────────
 const APT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
-const APT_CACHE_LS_KEY = 'apt_name_cache_v2';
+const APT_CACHE_LS_KEY = 'apt_name_cache_v3';
 const aptNameCache = {};
 
 function _loadAptCache() {
