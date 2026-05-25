@@ -419,7 +419,8 @@ body {
   font-size: 12px;
   min-width: 600px;
 }
-.apt-table thead th {
+.apt-table thead th,
+.apt-table tr.apt-col-hdr th {
   text-align: left;
   padding: 9px 12px;
   background: var(--tbl-hdr-bg2);
@@ -1039,9 +1040,17 @@ function renderSpreadsheet(folder) {
     return r;
   }
 
+  const colHeaderRow = `<tr class="apt-col-hdr">
+    <th style="width:110px;">아파트명</th><th>지역</th><th style="width:90px;">건축연도</th>
+    <th>전체세대수</th><th>복도형식</th><th style="width:70px;">세대당 주차</th>
+    <th style="width:70px;">용적률</th><th style="width:120px;">역 거리</th>
+    <th>거래건수 (12개월)</th>
+  </tr>`;
+
   if (!apts.length) {
     rows = `<tr><td colspan="9" style="text-align:center;padding:24px;" class="empty-notice">저장된 아파트가 없습니다.</td></tr>`;
   } else if (!groups.length) {
+    rows += colHeaderRow;
     apts.forEach(apt => { rows += renderAptRows(apt); });
   } else {
     const aptsByGroup = {};
@@ -1058,10 +1067,12 @@ function renderSpreadsheet(folder) {
       const groupApts = aptsByGroup[group.id] || [];
       if (!groupApts.length) return;
       rows += `<tr class="apt-group-hdr"><td colspan="9">📍 ${esc(group.name)}</td></tr>`;
+      rows += colHeaderRow;
       groupApts.forEach(apt => { rows += renderAptRows(apt); });
     });
     if (ungrouped.length) {
       rows += `<tr class="apt-group-hdr"><td colspan="9">미배정</td></tr>`;
+      rows += colHeaderRow;
       ungrouped.forEach(apt => { rows += renderAptRows(apt); });
     }
   }
@@ -1074,13 +1085,6 @@ function renderSpreadsheet(folder) {
       </div>
       <div class="apt-table-wrap">
         <table class="apt-table">
-          <thead><tr>
-            <th style="width:110px;">아파트명</th><th>지역</th><th style="width:90px;">건축연도</th>
-            <th>전체세대수</th><th>복도형식</th><th style="width:70px;">세대당 주차</th>
-            <th style="width:70px;">용적률</th><th style="width:120px;">역 거리</th>
-            <th>거래건수 (12개월)</th>
-          </tr></thead>
-          <!-- 서브 헤더는 각 아파트 rows 내에 포함 -->
           <tbody>${rows}</tbody>
         </table>
       </div>
