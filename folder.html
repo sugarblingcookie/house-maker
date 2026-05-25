@@ -916,11 +916,8 @@ function compressImage(file, callback) {
   };
   reader.readAsDataURL(file);
 }
-let memoSaveTimer = null;
-function debouncedSave(fn, delay = 500) {
-  clearTimeout(memoSaveTimer);
-  memoSaveTimer = setTimeout(fn, delay);
-}
+let photoReportTimer = null;
+let graphReportTimer = null;
 
 function init() {
   renderFolderTabs();
@@ -1036,17 +1033,54 @@ async function selectFolder(id) {
     loadTypeFilters(folder);
     renderSpreadsheet(folder);
     renderMemo(folder);
-    renderGraphs(folder);
+    await refreshGraphs();
     await refreshPhotos();
+    await refreshMemoPhotos();
   }
 }
 
-// 사진 목록 비동기 로드 후 렌더 (IndexedDB에서 이미지 데이터 가져옴)
+// 사진 목록 비동기 로드 후 렌더
 async function refreshPhotos() {
   if (!currentFolderId) return;
   const photos = await loadPhotosForFolder(currentFolderId);
   const folder = getFolder(currentFolderId);
   renderPhotos({ ...folder, photos });
+}
+
+// 그래프 목록 비동기 로드 후 렌더
+async function refreshGraphs() {
+  if (!currentFolderId) return;
+  const graphs = await loadGraphsForFolder(currentFolderId);
+  const folder = getFolder(currentFolderId);
+  renderGraphs({ ...folder, graphs });
+}
+
+// 입지분석 사진 3종을 IDB에서 로드해 화면에 반영
+async function refreshMemoPhotos() {
+  if (!currentFolderId) return;
+  const id = currentFolderId;
+  const [locData, schoolData, envData] = await Promise.all([
+    loadMemoPhoto(id, 'loc'), loadMemoPhoto(id, 'school'), loadMemoPhoto(id, 'env')
+  ]);
+  setPhotoUI('loc_photo', locData);
+  locPhotoData = locData;
+  setPhotoUI('school_photo', schoolData);
+  schoolPhotoData = schoolData;
+  setPhotoUI('env_photo', envData);
+  envPhotoData = envData;
+}
+
+function setPhotoUI(prefix, data) {
+  const img = document.getElementById(`${prefix}_img`);
+  if (data) {
+    img.src = data; img.style.display = 'block';
+    document.getElementById(`${prefix}_placeholder`).style.display = 'none';
+    document.getElementById(`${prefix}_del`).style.display = 'block';
+  } else {
+    img.src = ''; img.style.display = 'none';
+    document.getElementById(`${prefix}_placeholder`).style.display = '';
+    document.getElementById(`${prefix}_del`).style.display = 'none';
+  }
 }
 
 function createNewFolder() {
@@ -1203,7 +1237,7 @@ function renderAptBlock(apt, groups) {
   }).join('');
 
   const buildInfo = apt.buildYear
-    ? `${apt.buildYear}년 <span style="color:var(--text3);font-size:11px;">(${apt.buildingAge}년차)</span>`
+    ? `${apt.buildYear}년 <span style="color:var(--text3);font-size:11px;">(${new Date().getFullYear() - apt.buildYear}년차)</span>`
     : '<span style="color:var(--text3);">—</span>';
 
   const groupSelect = `<select onchange="changeAptGroup('${apt.id}',this.value)" style="min-width:80px;">
@@ -1531,7 +1565,7 @@ function removeApt(aptId) {
 function addCustomAreaPrompt(aptId) {
   const val = prompt('추가할 타입의 면적을 입력하세요\n(숫자만, 예: 84 또는 59.9)\n\n⚠️ 저장 후 면적 값은 수정할 수 없습니다.');
   if (!val || !val.trim()) return;
-  const key = val.trim();
+  let key = val.trim();
 
   const folder = getFolder(currentFolderId);
   const apt = (folder.apartments || []).find(a => a.id === aptId);
@@ -1606,7 +1640,6 @@ function saveMemoDebounced() {
   memoTimer = setTimeout(() => {
     if (!currentFolderId) return;
     saveMemo(currentFolderId, {
-      loc_photo: locPhotoData,
       loc_memo:  document.getElementById('loc_memo').value,
       work: document.getElementById('memo_work').value,
       work_region:   document.getElementById('work_region_select').value,
@@ -1624,13 +1657,11 @@ function saveMemoDebounced() {
       tc_yeouido_memo:  document.getElementById('tc_yeouido_memo').value,
       traffic: document.getElementById('memo_traffic').value,
       school_grade:      document.getElementById('school_grade_select').value,
-      school_photo:      schoolPhotoData,
       school_photo_memo: document.getElementById('school_photo_memo').value,
       school_95:         document.getElementById('school_95').value,
       school_90:         document.getElementById('school_90').value,
       school_85:         document.getElementById('school_85').value,
       env_grade:      document.getElementById('env_grade_select').value,
-      env_photo:      envPhotoData,
       env_photo_memo: document.getElementById('env_photo_memo').value,
       env_dept:       document.getElementById('env_dept').value,
       env_mart:       document.getElementById('env_mart').value,
@@ -1719,7 +1750,8 @@ async function removeReportPhoto(e, id) {
 }
 
 function updateReport(photoId, report) {
-  debouncedSave(() => updatePhotoReport(currentFolderId, photoId, report));
+  clearTimeout(photoReportTimer);
+  photoReportTimer = setTimeout(() => updatePhotoReport(currentFolderId, photoId, report), 500);
 }
 
 async function removeReportEntry(photoId) {
@@ -1782,10 +1814,10 @@ function renderGraphs(folder) {
   `).join('');
 }
 
-function addGraphEntry() {
+async function addGraphEntry() {
   if (!currentFolderId) return;
-  addGraph(currentFolderId, { data: '', report: '' });
-  renderGraphs(getFolder(currentFolderId));
+  await addGraph(currentFolderId, { data: '', report: '' });
+  await refreshGraphs();
 }
 
 function graphPhotoBoxClick(e, id) {
@@ -1807,34 +1839,34 @@ function handleGraphPhotoDrop(e, id) {
 }
 
 function loadGraphPhoto(file, id) {
-  compressImage(file, data => {
-    updateGraphData(currentFolderId, id, data);
-    renderGraphs(getFolder(currentFolderId));
+  compressImage(file, async data => {
+    await updateGraphData(currentFolderId, id, data);
+    await refreshGraphs();
   });
 }
 
-function removeGraphPhoto(e, id) {
+async function removeGraphPhoto(e, id) {
   e.stopPropagation();
-  updateGraphData(currentFolderId, id, '');
-  renderGraphs(getFolder(currentFolderId));
+  await updateGraphData(currentFolderId, id, '');
+  await refreshGraphs();
 }
 
 function updateGraphEntry(graphId, report) {
-  debouncedSave(() => updateGraphReport(currentFolderId, graphId, report));
+  clearTimeout(graphReportTimer);
+  graphReportTimer = setTimeout(() => updateGraphReport(currentFolderId, graphId, report), 500);
 }
 
-function removeGraphEntry(graphId) {
+async function removeGraphEntry(graphId) {
   if (!confirm('이 항목을 삭제할까요?')) return;
-  deleteGraph(currentFolderId, graphId);
-  renderGraphs(getFolder(currentFolderId));
+  await deleteGraph(currentFolderId, graphId);
+  await refreshGraphs();
 }
 
-function openGraphLightbox(e, id) {
+async function openGraphLightbox(e, id) {
   e.stopPropagation();
-  const folder = getFolder(currentFolderId);
-  const graph = (folder.graphs || []).find(g => g.id === id);
-  if (!graph || !graph.data) return;
-  document.getElementById('graph_lightbox_img').src = graph.data;
+  const data = await _idbGet(id);
+  if (!data) return;
+  document.getElementById('graph_lightbox_img').src = data;
   document.getElementById('graph_lightbox').style.display = 'flex';
 }
 
@@ -1992,14 +2024,10 @@ function handleSchoolPhotoDrop(e) {
 }
 
 function loadSchoolPhotoFile(file) {
-  compressImage(file, data => {
+  compressImage(file, async data => {
     schoolPhotoData = data;
-    const img = document.getElementById('school_photo_img');
-    img.src = schoolPhotoData;
-    img.style.display = 'block';
-    document.getElementById('school_photo_placeholder').style.display = 'none';
-    document.getElementById('school_photo_del').style.display = 'block';
-    saveMemoDebounced();
+    setPhotoUI('school_photo', data);
+    await saveMemoPhoto(currentFolderId, 'school', data);
   });
 }
 
@@ -2014,33 +2042,16 @@ function closeSchoolPhotoLightbox() {
   document.getElementById('school_lightbox').style.display = 'none';
 }
 
-function removeSchoolPhoto() {
+async function removeSchoolPhoto() {
   schoolPhotoData = '';
-  document.getElementById('school_photo_img').src = '';
-  document.getElementById('school_photo_img').style.display = 'none';
-  document.getElementById('school_photo_placeholder').style.display = '';
-  document.getElementById('school_photo_del').style.display = 'none';
-  saveMemoDebounced();
+  setPhotoUI('school_photo', '');
+  await saveMemoPhoto(currentFolderId, 'school', '');
 }
 
 function renderSchoolSection(folder) {
   const m = folder.memo || {};
   document.getElementById('school_grade_select').value = m.school_grade || '';
   onSchoolGradeChange();
-
-  schoolPhotoData = m.school_photo || '';
-  const img = document.getElementById('school_photo_img');
-  if (schoolPhotoData) {
-    img.src = schoolPhotoData;
-    img.style.display = 'block';
-    document.getElementById('school_photo_placeholder').style.display = 'none';
-    document.getElementById('school_photo_del').style.display = 'block';
-  } else {
-    img.src = ''; img.style.display = 'none';
-    document.getElementById('school_photo_placeholder').style.display = '';
-    document.getElementById('school_photo_del').style.display = 'none';
-  }
-
   document.getElementById('school_photo_memo').value = m.school_photo_memo || '';
   document.getElementById('school_95').value = m.school_95 || '';
   document.getElementById('school_90').value = m.school_90 || '';
@@ -2080,24 +2091,17 @@ function handleEnvPhotoDrop(e) {
 }
 
 function loadEnvPhotoFile(file) {
-  compressImage(file, data => {
+  compressImage(file, async data => {
     envPhotoData = data;
-    const img = document.getElementById('env_photo_img');
-    img.src = envPhotoData;
-    img.style.display = 'block';
-    document.getElementById('env_photo_placeholder').style.display = 'none';
-    document.getElementById('env_photo_del').style.display = 'block';
-    saveMemoDebounced();
+    setPhotoUI('env_photo', data);
+    await saveMemoPhoto(currentFolderId, 'env', data);
   });
 }
 
-function removeEnvPhoto() {
+async function removeEnvPhoto() {
   envPhotoData = '';
-  const img = document.getElementById('env_photo_img');
-  img.src = ''; img.style.display = 'none';
-  document.getElementById('env_photo_placeholder').style.display = '';
-  document.getElementById('env_photo_del').style.display = 'none';
-  saveMemoDebounced();
+  setPhotoUI('env_photo', '');
+  await saveMemoPhoto(currentFolderId, 'env', '');
 }
 
 function openEnvPhotoLightbox(e) {
@@ -2114,19 +2118,6 @@ function renderEnvSection(folder) {
   const m = folder.memo || {};
   document.getElementById('env_grade_select').value = m.env_grade || '';
   onEnvGradeChange();
-
-  envPhotoData = m.env_photo || '';
-  const img = document.getElementById('env_photo_img');
-  if (envPhotoData) {
-    img.src = envPhotoData; img.style.display = 'block';
-    document.getElementById('env_photo_placeholder').style.display = 'none';
-    document.getElementById('env_photo_del').style.display = 'block';
-  } else {
-    img.src = ''; img.style.display = 'none';
-    document.getElementById('env_photo_placeholder').style.display = '';
-    document.getElementById('env_photo_del').style.display = 'none';
-  }
-
   document.getElementById('env_photo_memo').value = m.env_photo_memo || '';
   document.getElementById('env_dept').value     = m.env_dept     || '';
   document.getElementById('env_mart').value     = m.env_mart     || '';
@@ -2190,24 +2181,17 @@ function handleLocPhotoDrop(e) {
 }
 
 function loadLocPhotoFile(file) {
-  compressImage(file, data => {
+  compressImage(file, async data => {
     locPhotoData = data;
-    const img = document.getElementById('loc_photo_img');
-    img.src = locPhotoData;
-    img.style.display = 'block';
-    document.getElementById('loc_photo_placeholder').style.display = 'none';
-    document.getElementById('loc_photo_del').style.display = 'block';
-    saveMemoDebounced();
+    setPhotoUI('loc_photo', data);
+    await saveMemoPhoto(currentFolderId, 'loc', data);
   });
 }
 
-function removeLocPhoto() {
+async function removeLocPhoto() {
   locPhotoData = '';
-  const img = document.getElementById('loc_photo_img');
-  img.src = ''; img.style.display = 'none';
-  document.getElementById('loc_photo_placeholder').style.display = '';
-  document.getElementById('loc_photo_del').style.display = 'none';
-  saveMemoDebounced();
+  setPhotoUI('loc_photo', '');
+  await saveMemoPhoto(currentFolderId, 'loc', '');
 }
 
 function openLocLightbox(e) {
@@ -2222,17 +2206,6 @@ function closeLocLightbox() {
 
 function renderLocSection(folder) {
   const m = folder.memo || {};
-  locPhotoData = m.loc_photo || '';
-  const img = document.getElementById('loc_photo_img');
-  if (locPhotoData) {
-    img.src = locPhotoData; img.style.display = 'block';
-    document.getElementById('loc_photo_placeholder').style.display = 'none';
-    document.getElementById('loc_photo_del').style.display = 'block';
-  } else {
-    img.src = ''; img.style.display = 'none';
-    document.getElementById('loc_photo_placeholder').style.display = '';
-    document.getElementById('loc_photo_del').style.display = 'none';
-  }
   document.getElementById('loc_memo').value = m.loc_memo || '';
 }
 
@@ -2300,7 +2273,7 @@ function handleImport(e) {
 }
 
 initWorkRegionSelect();
-migratePhotosToIDB().then(() => init());
+migrateToIDB().then(() => init());
 </script>
 </body>
 </html>

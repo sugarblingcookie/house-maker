@@ -961,7 +961,7 @@ function renderSpreadsheet(folder) {
     const areaStats = filterSet
       ? allAreaStats.filter(s => filterSet.has(String(s.area)))
       : allAreaStats;
-    const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${apt.buildingAge}년차)</span></span>` : '—';
+    const buildInfo = apt.buildYear ? `<span style="font-size:11px;">${apt.buildYear}년<br><span style="color:var(--body-text2);font-weight:400;">(${new Date().getFullYear() - apt.buildYear}년차)</span></span>` : '—';
     let r = '';
     r += `<tr class="apt-gap"><td colspan="9"></td></tr>`;
     r += `

@@ -197,8 +197,19 @@ const IDB_STORE = 'photos';
 
 function _openPhotoDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+    const req = indexedDB.open(IDB_NAME, 2);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      let store;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        store = db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+      } else {
+        store = e.target.transaction.objectStore(IDB_STORE);
+      }
+      if (!store.indexNames.contains('folderId')) {
+        store.createIndex('folderId', 'folderId', { unique: false });
+      }
+    };
     req.onsuccess = e => resolve(e.target.result);
     req.onerror = e => reject(e.target.error);
   });
@@ -229,10 +240,25 @@ async function _idbDelete(id) {
     tx.onerror = e => reject(e.target.error);
   });
 }
-async function _idbGetAllForFolder(folderId) {
+async function _idbGetAll() {
   const db = await _openPhotoDB();
   return new Promise((resolve, reject) => {
     const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).getAll();
+    req.onsuccess = e => {
+      const map = {};
+      e.target.result.forEach(r => { map[r.id] = { folderId: r.folderId, data: r.data }; });
+      resolve(map);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+async function _idbGetAllForFolder(folderId) {
+  const db = await _openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const store = db.transaction(IDB_STORE).objectStore(IDB_STORE);
+    const req = store.indexNames.contains('folderId')
+      ? store.index('folderId').getAll(IDBKeyRange.only(folderId))
+      : store.getAll();
     req.onsuccess = e => {
       const map = {};
       e.target.result.filter(r => r.folderId === folderId).forEach(r => { map[r.id] = r.data; });
@@ -251,15 +277,54 @@ async function loadPhotosForFolder(folderId) {
   return metas.map(p => ({ ...p, data: dataMap[p.id] || '' }));
 }
 
-// 기존 localStorage에 남아있는 photo.data를 IndexedDB로 이전 (앱 시작 시 1회)
-async function migratePhotosToIDB() {
+// 폴더 그래프 목록을 메타+이미지 데이터 합쳐서 반환 (비동기)
+async function loadGraphsForFolder(folderId) {
+  const folder = getFolder(folderId);
+  const metas = folder?.graphs || [];
+  if (!metas.length) return [];
+  const dataMap = await _idbGetAllForFolder(folderId);
+  return metas.map(g => ({ ...g, data: dataMap[g.id] || '' }));
+}
+
+// 입지분석 사진(loc/school/env)을 IDB에서 로드
+async function loadMemoPhoto(folderId, key) {
+  return await _idbGet(`__${key}_${folderId}`) || '';
+}
+
+// 입지분석 사진을 IDB에 저장 (data='' 이면 삭제)
+async function saveMemoPhoto(folderId, key, data) {
+  const id = `__${key}_${folderId}`;
+  if (data) await _idbPut(id, folderId, data);
+  else await _idbDelete(id);
+}
+
+// 기존 localStorage 이미지 데이터를 IndexedDB로 전부 이전 (앱 시작 시 1회)
+async function migrateToIDB() {
   const db = loadDB();
   let needsSave = false;
   for (const folder of db.folders) {
+    // 임장 보고서 사진
     for (const photo of (folder.photos || [])) {
       if (photo.data) {
         await _idbPut(photo.id, folder.id, photo.data);
         delete photo.data;
+        needsSave = true;
+      }
+    }
+    // 시세 그래프 이미지
+    for (const graph of (folder.graphs || [])) {
+      if (graph.data) {
+        await _idbPut(graph.id, folder.id, graph.data);
+        delete graph.data;
+        needsSave = true;
+      }
+    }
+    // 입지분석 사진 (loc/school/env)
+    const m = folder.memo || {};
+    for (const key of ['loc_photo', 'school_photo', 'env_photo']) {
+      if (m[key]) {
+        await _idbPut(`__${key.replace('_photo','')}_${folder.id}`, folder.id, m[key]);
+        delete m[key];
         needsSave = true;
       }
     }
@@ -351,7 +416,6 @@ function saveApartment(folderId, aptData) {
     regionName: aptData.regionName,
     savedAt: new Date().toISOString(),
     buildYear: aptData.buildYear || null,
-    buildingAge: aptData.buildingAge || null,
     areas: aptData.areas || [],
     areaStats: aptData.areaStats || [],
     trades: aptData.trades || [],
@@ -471,40 +535,38 @@ async function updatePhotoData(folderId, photoId, data) {
 }
 
 // 시세 그래프 항목 추가
-function addGraph(folderId, graphData) {
+// 그래프 추가 — 메타는 localStorage, 이미지 data는 IndexedDB
+async function addGraph(folderId, graphData) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
   if (!folder) return;
   if (!folder.graphs) folder.graphs = [];
   const graph = {
     id: Date.now().toString(),
-    data: graphData.data || '',
     report: graphData.report || '',
     addedAt: new Date().toISOString()
   };
   folder.graphs.push(graph);
   saveDB(db);
+  if (graphData.data) await _idbPut(graph.id, folderId, graphData.data);
   return graph;
 }
 
-// 시세 그래프 항목 삭제
-function deleteGraph(folderId, graphId) {
+// 시세 그래프 항목 삭제 — localStorage 메타 + IndexedDB 데이터 모두 제거
+async function deleteGraph(folderId, graphId) {
   const db = loadDB();
   const folder = db.folders.find(f => f.id === folderId);
   if (folder && folder.graphs) {
     folder.graphs = folder.graphs.filter(g => g.id !== graphId);
     saveDB(db);
   }
+  await _idbDelete(graphId);
 }
 
-// 시세 그래프 이미지 데이터 업데이트
-function updateGraphData(folderId, graphId, data) {
-  const db = loadDB();
-  const folder = db.folders.find(f => f.id === folderId);
-  if (folder && folder.graphs) {
-    const graph = folder.graphs.find(g => g.id === graphId);
-    if (graph) { graph.data = data; saveDB(db); }
-  }
+// 시세 그래프 이미지 업데이트 — IndexedDB에만 저장
+async function updateGraphData(folderId, graphId, data) {
+  if (data) await _idbPut(graphId, folderId, data);
+  else await _idbDelete(graphId);
 }
 
 // 시세 그래프 메모 업데이트
@@ -566,9 +628,11 @@ function updateAptGroup(folderId, aptId, groupId) {
 }
 
 // JSON 내보내기
-function exportJSON() {
+async function exportJSON() {
   const db = loadDB();
-  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const idb = await _idbGetAll();
+  const payload = { ...db, _idb: idb };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -580,11 +644,10 @@ function exportJSON() {
 // JSON 불러오기
 function importJSON(file, onSuccess, onError) {
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
       if (!data.folders || !Array.isArray(data.folders)) throw new Error('올바르지 않은 파일 형식입니다.');
-      // 기존 데이터와 병합 (폴더 id 중복 시 덮어쓰기)
       const db = loadDB();
       data.folders.forEach(incoming => {
         const idx = db.folders.findIndex(f => f.id === incoming.id);
@@ -592,6 +655,13 @@ function importJSON(file, onSuccess, onError) {
         else db.folders.push(incoming);
       });
       saveDB(db);
+      if (data._idb) {
+        await Promise.all(
+          Object.entries(data._idb).map(([id, { folderId, data: imgData }]) =>
+            _idbPut(id, folderId, imgData)
+          )
+        );
+      }
       if (onSuccess) onSuccess(db);
     } catch(err) {
       if (onError) onError(err.message);
