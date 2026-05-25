@@ -83,31 +83,33 @@ async function fetchAptNamesInRegion(lawdCd) {
   if (aptNameCache[lawdCd]) return aptNameCache[lawdCd];
 
   const now = new Date();
-  const nameMap = new Map(); // name → buildYear
-
-  // 최근 12개월치 호출해서 아파트 목록 수집
-  for (let i = 11; i >= 0; i--) {
+  const months = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const fetchMonth = async (ym) => {
     try {
       const apiUrl = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?pageNo=1&numOfRows=1000&DEAL_YMD=${ym}&LAWD_CD=${lawdCd}`;
-      console.log(`[APT] ${ym} 요청 URL:`, apiUrl);
       const res = await fetch(proxyUrl(apiUrl));
       const text = await res.text();
-      console.log(`[APT] ${ym} 응답:`, text.slice(0, 300));
       const xml = new DOMParser().parseFromString(text, 'text/xml');
-      const errMsg = xml.querySelector('errMsg, returnAuthMsg, cmmMsgHeader > errMsg')?.textContent?.trim();
-      if (errMsg) console.warn(`[APT] API 오류 메시지: ${errMsg}`);
+      const items = [];
       xml.querySelectorAll('item').forEach(item => {
         const nm = item.querySelector('aptNm')?.textContent?.trim();
         if (!nm) return;
-        if (!nameMap.has(nm)) {
-          const by = item.querySelector('buildYear')?.textContent?.trim();
-          nameMap.set(nm, (by && by.length === 4) ? parseInt(by) : null);
-        }
+        const by = item.querySelector('buildYear')?.textContent?.trim();
+        items.push({ nm, buildYear: (by && by.length === 4) ? parseInt(by) : null });
       });
-    } catch(e) { console.error('[APT] fetch 오류:', e); }
-  }
+      return items;
+    } catch(e) { console.error('[APT] fetch 오류:', e); return []; }
+  };
+
+  const nameMap = new Map();
+  const results = await Promise.all(months.map(fetchMonth));
+  results.flat().forEach(({ nm, buildYear }) => {
+    if (!nameMap.has(nm)) nameMap.set(nm, buildYear);
+  });
 
   const result = [...nameMap.entries()]
     .sort((a, b) => a[0].localeCompare(b[0], 'ko'))
