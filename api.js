@@ -1,6 +1,5 @@
 // api.js — 국토교통부 실거래가 API + 유연한 검색 로직
 
-const API_KEY = '1fcf3fd2a99105dcf542220725b1ba54f683cbecb835ce39e450465d22e3c52e';
 
 const REGIONS = {
   '서울특별시': {'종로구':'11110','중구':'11140','용산구':'11170','성동구':'11200','광진구':'11215','동대문구':'11230','중랑구':'11260','성북구':'11290','강북구':'11305','도봉구':'11320','노원구':'11350','은평구':'11380','서대문구':'11410','마포구':'11440','양천구':'11470','강서구':'11500','구로구':'11530','금천구':'11545','영등포구':'11560','동작구':'11590','관악구':'11620','서초구':'11650','강남구':'11680','송파구':'11710','강동구':'11740'},
@@ -91,7 +90,7 @@ async function fetchAptNamesInRegion(lawdCd) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const ym = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
     try {
-      const apiUrl = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${API_KEY}&pageNo=1&numOfRows=1000&DEAL_YMD=${ym}&LAWD_CD=${lawdCd}`;
+      const apiUrl = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?pageNo=1&numOfRows=1000&DEAL_YMD=${ym}&LAWD_CD=${lawdCd}`;
       console.log(`[APT] ${ym} 요청 URL:`, apiUrl);
       const res = await fetch(proxyUrl(apiUrl));
       const text = await res.text();
@@ -131,7 +130,7 @@ async function fetchTrades(lawdCd, exactName, months) {
   const fetchMonth = async ({ year, month }) => {
     try {
       const ym = `${year}${String(month).padStart(2,'0')}`;
-      const apiUrl = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${API_KEY}&pageNo=1&numOfRows=200&DEAL_YMD=${ym}&LAWD_CD=${lawdCd}`;
+      const apiUrl = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?pageNo=1&numOfRows=200&DEAL_YMD=${ym}&LAWD_CD=${lawdCd}`;
       const res = await fetch(proxyUrl(apiUrl));
       const text = await res.text();
       const xml = new DOMParser().parseFromString(text, 'text/xml');
