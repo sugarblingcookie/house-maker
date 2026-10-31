@@ -76,6 +76,49 @@ function proxyUrl(apiUrl) {
   return `${PROXY}?url=${encodeURIComponent(apiUrl)}`;
 }
 
+// ─── 공공데이터포털 인증키 만료/오류 감지 ─────────────────────────
+// serviceKey가 만료·정지·미등록되면 apis.data.go.kr가 결과 대신 오류코드를 내려줌.
+// (정상 응답은 resultCode '00', 그달 거래가 없는 경우의 '03'은 키 문제가 아니므로 제외)
+const AUTH_ERROR_LABELS = {
+  '11': '필수 파라미터 누락 (키 누락 가능) - NO_MANDATORY_REQUEST_PARAMETERS_ERROR',
+  '12': '등록되지 않은 서비스 - NO_OPENAPI_SERVICE_ERROR',
+  '20': '서비스 접근 거부 - SERVICE_ACCESS_DENIED_ERROR',
+  '21': '키 일시 정지 - TEMPORARILY_DISABLE_THE_SERVICEKEY_ERROR',
+  '22': '일일 요청 한도 초과 - LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR',
+  '30': '등록되지 않은 키 - SERVICE_KEY_IS_NOT_REGISTERED_ERROR',
+  '31': '활용기간 만료 - DEADLINE_HAS_EXPIRED_ERROR',
+  '32': '미등록 IP - UNREGISTERED_IP_ERROR',
+  '33': '서명되지 않은 요청 - UNSIGNED_CALL_ERROR',
+};
+
+let _apiKeyExpiredShown = false;
+
+function _checkApiAuthError(xml) {
+  const code = xml.querySelector('cmmMsgHeader returnReasonCode')?.textContent?.trim()
+    || xml.querySelector('header resultCode')?.textContent?.trim();
+  if (!code || !AUTH_ERROR_LABELS[code] || _apiKeyExpiredShown) return;
+  _apiKeyExpiredShown = true;
+  _showApiExpiredBanner(code, AUTH_ERROR_LABELS[code]);
+}
+
+function _showApiExpiredBanner(code, label) {
+  if (document.getElementById('apiExpiredBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'apiExpiredBanner';
+  banner.style.cssText = `
+    position:fixed; top:0; left:0; right:0; z-index:9999;
+    background:#b42318; color:#fff; font-family:'Noto Sans KR',sans-serif;
+    font-size:13px; padding:12px 16px; display:flex; align-items:center;
+    justify-content:center; gap:12px; flex-wrap:wrap; text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  `;
+  banner.innerHTML = `
+    <span>⚠️ 공공데이터 API 키가 만료되었거나 접근이 제한되었습니다. (오류코드 ${code}: ${label}) 검색 결과가 나오지 않을 수 있습니다. <b>API_갱신_가이드.md</b> 파일을 참고해 키를 갱신해주세요.</span>
+    <button type="button" style="background:#fff;color:#b42318;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-weight:600;flex-shrink:0;" onclick="document.getElementById('apiExpiredBanner').remove()">닫기</button>
+  `;
+  document.body.prepend(banner);
+}
+
 // ─── 지역 아파트명 캐시 (메모리 + localStorage, 7일 유효) ──────────
 const APT_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 const APT_CACHE_LS_KEY = 'apt_name_cache_v4';
@@ -119,6 +162,7 @@ async function fetchAptNamesInRegion(lawdCd) {
       const res = await fetch(proxyUrl(apiUrl));
       const text = await res.text();
       const xml = new DOMParser().parseFromString(text, 'text/xml');
+      _checkApiAuthError(xml);
       const items = [];
       xml.querySelectorAll('item').forEach(item => {
         const nm = item.querySelector('aptNm')?.textContent?.trim();
@@ -165,6 +209,7 @@ async function fetchTrades(lawdCd, exactName, months) {
       const res = await fetch(proxyUrl(apiUrl));
       const text = await res.text();
       const xml = new DOMParser().parseFromString(text, 'text/xml');
+      _checkApiAuthError(xml);
       const trades = [];
       let buildYear = null;
       xml.querySelectorAll('item').forEach(item => {
