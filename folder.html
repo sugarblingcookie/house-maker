@@ -381,6 +381,7 @@
       <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <div class="card-title" style="margin-bottom:0;">시세 정리 <span id="aptCountBadge" style="color:var(--accent);font-weight:400;"></span></div>
         <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" onclick="openManualAptModal()">+ 아파트 직접 추가</button>
           <button class="btn btn-sm" onclick="createGroupPrompt()">+ 역/생활권 추가</button>
           <a href="index.html" class="btn btn-sm">+ 시세 조회에서 추가</a>
         </div>
@@ -1562,6 +1563,50 @@ function removeApt(aptId) {
   renderSpreadsheet(getFolder(currentFolderId));
 }
 
+// ─── 아파트 직접 추가 ────────────────────────────────────────────
+function openManualAptModal() {
+  if (!currentFolderId) return;
+  const folder = getFolder(currentFolderId);
+  document.getElementById('manualAptName').value = '';
+  document.getElementById('manualAptRegion').value = '';
+  document.getElementById('manualAptYear').value = '';
+  document.getElementById('manualAptGroup').innerHTML =
+    `<option value="">미배정</option>` +
+    (folder.groups || []).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  document.getElementById('manualAptModal').style.display = 'flex';
+  document.getElementById('manualAptName').focus();
+}
+
+function closeManualAptModal() {
+  document.getElementById('manualAptModal').style.display = 'none';
+}
+
+function submitManualApt() {
+  const name = document.getElementById('manualAptName').value.trim();
+  if (!name) {
+    alert('아파트명을 입력해주세요.');
+    document.getElementById('manualAptName').focus();
+    return;
+  }
+  const regionName = document.getElementById('manualAptRegion').value.trim();
+  const yearNum = parseInt(document.getElementById('manualAptYear').value.trim(), 10);
+  const buildYear = yearNum >= 1900 && yearNum <= new Date().getFullYear() ? yearNum : null;
+  const groupId = document.getElementById('manualAptGroup').value || null;
+
+  // saveApartment는 이름+lawdCd가 같으면 덮어쓰므로 미리 확인
+  const folder = getFolder(currentFolderId);
+  const dup = (folder.apartments || []).some(a => a.name === name && a.lawdCd === 'manual');
+  if (dup && !confirm(`직접 추가한 "${name}"이(가) 이미 있습니다.\n덮어쓸까요? (입력해둔 값은 유지됩니다)`)) return;
+
+  saveApartment(currentFolderId, {
+    name, lawdCd: 'manual', regionName, buildYear,
+    areas: [], areaStats: [], trades: [], groupId
+  });
+  closeManualAptModal();
+  renderSpreadsheet(getFolder(currentFolderId));
+  applyAllSavedTypeFilters();
+}
+
 function addCustomAreaPrompt(aptId) {
   const val = prompt('추가할 타입의 면적을 입력하세요\n(숫자만, 예: 84 또는 59.9)\n\n⚠️ 저장 후 면적 값은 수정할 수 없습니다.');
   if (!val || !val.trim()) return;
@@ -2275,5 +2320,32 @@ function handleImport(e) {
 initWorkRegionSelect();
 migrateToIDB().then(() => init());
 </script>
+
+<!-- 아파트 직접 추가 입력창 -->
+<div id="manualAptModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeManualAptModal()">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:20px 22px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.25);"
+       onkeydown="if(event.key==='Enter'&&event.target.tagName==='INPUT')submitManualApt();if(event.key==='Escape')closeManualAptModal();">
+    <div class="card-title" style="margin-bottom:14px;">아파트 직접 추가</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <label style="font-size:12px;color:var(--text2);">아파트명 <span style="color:var(--accent);">*</span>
+        <input id="manualAptName" type="text" placeholder="예: 노원롯데캐슬시그니처" style="width:100%;margin-top:4px;" />
+      </label>
+      <label style="font-size:12px;color:var(--text2);">지역
+        <input id="manualAptRegion" type="text" placeholder="예: 서울특별시 노원구" style="width:100%;margin-top:4px;" />
+      </label>
+      <label style="font-size:12px;color:var(--text2);">건축연도
+        <input id="manualAptYear" type="text" inputmode="numeric" maxlength="4" placeholder="예: 2015" style="width:100%;margin-top:4px;" />
+      </label>
+      <label style="font-size:12px;color:var(--text2);">생활권
+        <select id="manualAptGroup" style="width:100%;margin-top:4px;"></select>
+      </label>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5;">추가 후 아래 '＋ 타입 추가'로 면적과 가격을 입력할 수 있어요.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button class="btn btn-sm" onclick="closeManualAptModal()">취소</button>
+      <button class="btn btn-sm btn-primary" onclick="submitManualApt()">추가</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
