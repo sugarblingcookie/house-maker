@@ -1181,9 +1181,17 @@ function renderReport(folder) {
     document.getElementById('reportRoot').innerHTML = '<div style="padding:60px 20px;text-align:center;" class="empty-notice">폴더를 찾을 수 없습니다.</div>';
     return;
   }
-  // 사진 이미지를 IndexedDB에서 로드 후 렌더
-  const photos = await loadPhotosForFolder(folderId);
-  renderReport({ ...folder, photos });
+  // 사진·그래프·입지분석 이미지를 IndexedDB에서 로드 후 렌더
+  // (localStorage 캐시 객체를 건드리지 않도록 사본에만 채움)
+  const [photos, graphs, loc, school, env] = await Promise.all([
+    loadPhotosForFolder(folderId),
+    loadGraphsForFolder(folderId),
+    loadMemoPhoto(folderId, 'loc'),
+    loadMemoPhoto(folderId, 'school'),
+    loadMemoPhoto(folderId, 'env')
+  ]);
+  const memo = { ...(folder.memo || {}), loc_photo: loc, school_photo: school, env_photo: env };
+  renderReport({ ...folder, photos, graphs, memo });
 })();
 </script>
 
