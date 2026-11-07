@@ -180,7 +180,7 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title" style="margin-bottom:0;">실거래가 추이
-            <span style="color:var(--text3);font-weight:400;">최근 12개월</span>
+            <span style="color:var(--text3);font-weight:400;">최근 3년</span>
           </div>
           <div class="area-pills" id="areaPills"></div>
         </div>
@@ -648,7 +648,9 @@ const SESSION_KEY = 'apt_tracker_session';
 function saveSession() {
   try {
     const activeIdx = apartments.indexOf(activeApt);
-    const slim = apartments.map(({ allTrades: _, ...rest }) => rest);
+    // trades(12개월)는 allTrades(3년)의 부분집합이라 allTrades만 저장하고 복원 시 재계산
+    const slim = apartments.map(({ trades, allTrades, ...rest }) =>
+      allTrades ? { ...rest, allTrades } : { ...rest, trades });
     localStorage.setItem(SESSION_KEY, JSON.stringify({ apartments: slim, activeIdx, selectedArea }));
     _hideStorageBanner();
   } catch(e) { _showStorageBanner(); }
@@ -663,6 +665,10 @@ function restoreSession() {
     // 구 버전 세션 감지: highPrice 필드 없으면 초기화
     const isOldFormat = saved.some(a => (a.areaStats || []).some(s => s.highPrice === undefined));
     if (isOldFormat) { localStorage.removeItem(SESSION_KEY); return; }
+    const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 1);
+    saved.forEach(a => {
+      if (a.allTrades) a.trades = a.allTrades.filter(t => new Date(t.date) >= cutoff);
+    });
     apartments.push(...saved);
     selectedArea = savedArea || 'all';
     activeApt = apartments[activeIdx] ?? apartments[0];

@@ -973,7 +973,7 @@ function renderSpreadsheet(folder) {
         <td>${esc(m.corridorType||'')||'—'}</td>
         <td>${esc(m.parking||'')||'—'}</td>
         <td>${esc(m.farRatio||'')||'—'}</td>
-        <td style="white-space:nowrap;">${esc(m.stationDist||'')||'—'}</td>
+        <td style="white-space:normal;word-break:keep-all;font-size:11px;font-weight:400;">${esc(m.stationDist||'')||'—'}</td>
         <td>${(apt.trades||[]).length}건</td>
       </tr>
       <tr class="apt-sub-hdr">
